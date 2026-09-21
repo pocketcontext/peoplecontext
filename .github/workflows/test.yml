@@ -1,0 +1,43 @@
+name: HR authorization
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: peoplecontext
+          persist-credentials: false
+      - name: Read server revision
+        id: server
+        shell: bash
+        run: |
+          revision=$(cat peoplecontext/POCKETCONTEXT_VERSION)
+          [[ "$revision" =~ ^[0-9a-f]{40}$ ]]
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: pocketcontext/pocketcontext
+          ref: ${{ steps.server.outputs.revision }}
+          path: pocketcontext
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: pocketcontext/go.mod
+          cache-dependency-path: pocketcontext/go.sum
+      - name: Build pinned server
+        run: make -C pocketcontext build
+      - name: Unit tests
+        working-directory: peoplecontext
+        run: python3 -m unittest discover -s tests
+      - name: HR integration tests
+        run: python3 peoplecontext/tests/integration.py --binary pocketcontext/bin/pocketcontext

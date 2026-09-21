@@ -1,0 +1,29 @@
+{
+  "authCollection": "agents",
+  "tables": {
+    "employees": ["id", "name", "job_title", "department", "created", "updated"],
+    "compensation": ["id", "employee", "annual_salary_minor", "currency", "effective_date", "created", "updated"],
+    "personal_details": ["id", "employee", "home_address", "emergency_contact", "created", "updated"],
+    "hr_notes": ["id", "employee", "body", "created", "updated"]
+  },
+  "timeoutMs": 2000,
+  "maxRows": 500,
+  "maxBytes": 1048576,
+  "snapshot": {
+    "filters": {
+      "employees": "1",
+      "compensation": "EXISTS (SELECT 1 FROM hr_members h WHERE h.account = :requester) OR EXISTS (WITH RECURSIVE ancestors(employee) AS (SELECT manager FROM reporting_lines WHERE employee = compensation.employee UNION SELECT r.manager FROM reporting_lines r JOIN ancestors a ON r.employee = a.employee) SELECT 1 FROM ancestors a JOIN account_links l ON l.employee = a.employee WHERE l.account = :requester)",
+      "personal_details": "EXISTS (SELECT 1 FROM hr_members h WHERE h.account = :requester) OR EXISTS (SELECT 1 FROM account_links l WHERE l.account = :requester AND l.employee = personal_details.employee)",
+      "hr_notes": "EXISTS (SELECT 1 FROM hr_members h WHERE h.account = :requester)"
+    },
+    "policyTables": {
+      "account_links": ["account", "employee"],
+      "hr_members": ["account"],
+      "reporting_lines": ["employee", "manager"]
+    },
+    "timeoutMs": 5000,
+    "maxRows": 100000,
+    "maxBytes": 16777216,
+    "maxConcurrent": 4
+  }
+}
