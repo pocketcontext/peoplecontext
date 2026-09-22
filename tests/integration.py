@@ -133,24 +133,26 @@ def run(server):
     def ids(*members):
         return {employees[name]['id'] for name in members}
 
-    expected = {'hr': ids(*names), 'grand': ids('manager', 'worker'), 'manager': ids('worker'),
-                'worker': set(), 'other_grand': ids('other_manager', 'other_worker'),
-                'other_manager': ids('other_worker'), 'other_worker': set(), 'outsider': set()}
+    expected = {'hr': ids(*names), 'grand': ids('grand', 'manager', 'worker'), 'manager': ids('manager', 'worker'),
+                'worker': ids('worker'), 'other_grand': ids('other_grand', 'other_manager', 'other_worker'),
+                'other_manager': ids('other_manager', 'other_worker'), 'other_worker': ids('other_worker'), 'outsider': ids('outsider')}
     for name in names:
         assert visible(name) == expected[name], ('salary scope', name)
         assert visible(name, 'personal_details') == (ids(*names) if name == 'hr' else ids(name)), ('personal scope', name)
         assert visible(name, 'hr_notes') == (ids(*names) if name == 'hr' else set()), ('note scope', name)
         assert s.sql(tokens[name], 'SELECT count(*) FROM employees')['rows'] == [[len(names)]]
+        total = sum(salaries[person]['annual_salary_minor'] for person in names if employees[person]['id'] in expected[name])
+        assert s.sql(tokens[name], 'SELECT count(*), sum(annual_salary_minor) FROM compensation')['rows'] == [[len(expected[name]), total]], ('salary aggregate', name)
     result, headers = s.request('POST', '/api/context/query', {'sql': 'SELECT count(*) FROM compensation'}, tokens['grand'], with_headers=True)
-    assert result['rows'] == [[2]]
+    assert result['rows'] == [[3]]
     assert headers['X-Context-Scope'] == 'authorized-snapshot' and headers['X-Context-Snapshot-At']
-    assert s.sql(tokens['grand'], 'WITH team AS (SELECT e.name, c.annual_salary_minor FROM employees e JOIN compensation c ON e.id=c.employee) SELECT name FROM team ORDER BY name')['rows'] == [['manager'], ['worker']]
-    assert s.sql(tokens['grand'], 'SELECT sum(annual_salary_minor) FROM compensation')['rows'] == [[700000]]
+    assert s.sql(tokens['grand'], 'WITH team AS (SELECT e.name, c.annual_salary_minor FROM employees e JOIN compensation c ON e.id=c.employee) SELECT name FROM team ORDER BY name')['rows'] == [['grand'], ['manager'], ['worker']]
+    assert s.sql(tokens['grand'], 'SELECT sum(annual_salary_minor) FROM compensation')['rows'] == [[900000]]
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
         futures = [(name, executor.submit(visible, name)) for _ in range(3) for name in names]
         for name, future in futures:
             assert future.result() == expected[name], ('concurrent isolation', name)
-    print('PASS: directory, salary hierarchy, self/HR personal data, HR notes, joins, aggregates, concurrent isolation')
+    print('PASS: directory, self and hierarchy salary access, self/HR personal data, HR notes, joins, aggregates, concurrent isolation')
 
     schema = json.dumps(s.request('GET', '/api/context/schema', token=tokens['worker']))
     for table in ('account_links', 'hr_members', 'reporting_lines', 'agents', '_superusers', 'sqlite_schema'):
@@ -163,7 +165,7 @@ def run(server):
                   'WITH hr_members AS (SELECT 1) SELECT * FROM compensation'):
         # A shadow CTE is harmless: it cannot modify the already-exported dataset.
         if query.startswith('WITH hr_members'):
-            assert s.sql(tokens['worker'], query)['rows'] == []
+            assert s.sql(tokens['worker'], query.replace('SELECT * FROM compensation', 'SELECT employee FROM compensation'))['rows'] == [[employees['worker']['id']]]
         else:
             s.sql(tokens['worker'], query, expected=DENIED)
     spoof = s.sql(tokens['worker'], 'SELECT employee FROM compensation', extra={'requester': accounts['hr']['id']}, expected=400)
@@ -214,7 +216,7 @@ def run(server):
         s.request('PATCH', records('compensation', salaries['worker']['id']), invalid, hr, expected=400)
     # Required non-cascading relations prevent HR deleting policy-bearing identities.
     s.request('DELETE', records('employees', employees['worker']['id']), token=hr, expected=400)
-    assert visible('manager') == ids('worker')
+    assert visible('manager') == ids('manager', 'worker')
     # PocketBase accepts subscriptions but must suppress record events under locked view/list rules.
     for actor in ('worker', 'manager', 'hr', 'admin'):
         stream = urllib.request.urlopen(s.base + '/api/realtime', timeout=1)
@@ -256,24 +258,45 @@ def run(server):
 
     start = time.monotonic()
     s.request('PATCH', records('reporting_lines', lines['manager']['id']), {'manager': employees['other_manager']['id']}, s.admin)
-    assert visible('grand') == set()
-    assert visible('manager') == ids('worker')
-    assert visible('other_manager') == ids('manager', 'worker', 'other_worker')
-    assert visible('other_grand') == ids('other_manager', 'other_worker', 'manager', 'worker')
+    assert visible('grand') == ids('grand')
+    assert visible('manager') == ids('manager', 'worker')
+    assert visible('other_manager') == ids('other_manager', 'manager', 'worker', 'other_worker')
+    assert visible('other_grand') == ids('other_grand', 'other_manager', 'other_worker', 'manager', 'worker')
+    assert visible('worker') == ids('worker')
     print(f'PASS: cross-branch transfer revokes old chain and grants new chain on next requests ({time.monotonic() - start:.3f}s)')
     s.request('DELETE', records('hr_members', hr_member['id']), token=s.admin, expected=204)
-    assert visible('hr') == set() and visible('hr', 'hr_notes') == set()
+    assert visible('hr') == ids('hr') and visible('hr', 'hr_notes') == set()
     assert visible('hr', 'personal_details') == ids('hr')
     s.request('PATCH', records('compensation', salaries['worker']['id']), {}, hr, expected=DENIED)
     hr_member = s.create('hr_members', {'account': accounts['hr']['id']})
     assert visible('hr') == ids(*names)
     # Remap linked identities; existing login tokens must see fresh policy.
     s.request('DELETE', records('account_links', links['manager']['id']), token=s.admin, expected=204)
+    assert visible('manager') == set() and visible('manager', 'personal_details') == set()
     s.request('PATCH', records('account_links', links['outsider']['id']), {'account': accounts['manager']['id']}, s.admin)
     links['manager'] = s.create('account_links', {'account': accounts['outsider']['id'], 'employee': employees['manager']['id']})
-    assert visible('manager') == set() and visible('outsider') == ids('worker')
+    assert visible('manager') == ids('outsider') and visible('outsider') == ids('manager', 'worker')
     assert visible('manager', 'personal_details') == ids('outsider')
-    print('PASS: HR removal/restoration and account remapping immediately affect existing tokens')
+    assert visible('outsider', 'personal_details') == ids('manager')
+    # The worker's original token loses self access when unlinked; names and email
+    # are unchanged, and recreating the administrator-owned link restores access.
+    s.request('DELETE', records('account_links', links['worker']['id']), token=s.admin, expected=204)
+    assert visible('worker') == set() and visible('worker', 'personal_details') == set()
+    assert s.sql(tokens['worker'], 'SELECT count(*), sum(annual_salary_minor) FROM compensation')['rows'] == [[0, None]]
+    assert s.sql(tokens['worker'], 'SELECT count(*) FROM employees')['rows'] == [[len(names)]]
+    links['worker'] = s.create('account_links', {'account': accounts['worker']['id'], 'employee': employees['worker']['id']})
+    assert visible('worker') == ids('worker')
+    assert visible('worker', 'personal_details') == ids('worker')
+    assert visible('worker', 'hr_notes') == set()
+    assert s.sql(tokens['worker'], 'SELECT count(*), sum(annual_salary_minor) FROM compensation')['rows'] == [[1, 400000]]
+    # Linking an account cannot manufacture a missing compensation record.
+    no_salary = s.create('employees', {'name': 'No compensation yet'}, hr)
+    s.request('PATCH', records('account_links', links['worker']['id']), {'employee': no_salary['id']}, s.admin)
+    assert visible('worker') == set()
+    s.request('PATCH', records('account_links', links['worker']['id']), {'employee': employees['worker']['id']}, s.admin)
+    assert visible('worker') == ids('worker')
+    s.request('DELETE', records('employees', no_salary['id']), token=hr, expected=204)
+    print('PASS: HR removal/restoration, account remapping, unlink/relink and absent compensation with existing tokens')
 
     s.request('POST', records('reporting_lines'), {'employee': employees['grand']['id'], 'manager': employees['grand']['id']}, s.admin, expected=400)
     s.request('POST', records('reporting_lines'), {'employee': employees['other_grand']['id'], 'manager': employees['worker']['id']}, s.admin, expected=400)

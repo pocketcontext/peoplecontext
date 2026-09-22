@@ -2,7 +2,7 @@
 
 An HR application that validates PocketContext filtered snapshots. It contains collections, migrations, policy configuration, hooks, and synthetic integration tests, with no frontend. PocketContext supplies the server.
 
-The access model is directory access for authenticated employees; compensation for HR and the employee's direct or indirect managers; personal details for self and HR; confidential HR notes for HR only. Salary access does not automatically include one's own salary. Administrators manage account links, HR roles, and reporting relationships.
+The access model is directory access for authenticated employees; compensation for self, HR, and the employee's direct or indirect managers; personal details for self and HR; confidential HR notes for HR only. Self access requires an administrator-managed account link. Administrators manage account links, HR roles, and reporting relationships.
 
 ## Run locally
 
@@ -37,10 +37,10 @@ as helen
 show
 ```
 
-Everyone sees the five directory entries. Alice sees Bob's compensation; Dana
-sees Alice's and Bob's; Bob and Carol see none. Each sees only their own personal
-details and no HR notes. Helen, as HR, sees all compensation, details, and notes.
-No agent gains salary self-access merely from being an employee or manager.
+Everyone sees the five directory entries and their own compensation. Alice also
+sees Bob's compensation; Dana also sees Alice's and Bob's. Each sees only their
+own personal details and no HR notes. Helen, as HR, sees all compensation,
+details, and notes.
 
 Transfer Bob to the other branch, then repeat queries with the original tokens:
 
@@ -54,7 +54,8 @@ as carol
 show
 ```
 
-Alice loses Bob; Dana retains only Alice; Carol gains Bob. Revoke and restore HR:
+Alice retains her own compensation; Dana retains her own and Alice's; Carol
+gains Bob's alongside her own. Bob keeps his own access. Revoke and restore HR:
 
 ```text
 as helen
@@ -69,10 +70,10 @@ sql SELECT COUNT(*), SUM(annual_salary_minor) FROM compensation
 quit
 ```
 
-Revoked Helen sees only the directory and her own personal details. Restoration
+Revoked Helen sees the directory, her own compensation, and her own personal details. Restoration
 returns her HR visibility without logging in again. `bypass` checks rejection of
 policy/auth table queries and direct compensation REST reads, including for HR.
-Bob's aggregate is zero rows counted and a null sum. `transfer` and `hr` explicitly
+Bob's aggregate counts one row and sums to `9000000` minor currency units. `transfer` and `hr` explicitly
 use the demo administrator; `show`, `schema`, `sql`, and `bypass` use the selected
 agent. Type `help` for the command list. Each new run starts a fresh demo.
 
@@ -107,7 +108,7 @@ Only superusers can edit account records through the records API or change links
 | Collection | Fields in addition to `id`, `created`, and `updated` | Snapshot visibility |
 | --- | --- | --- |
 | `employees` | `name`, `job_title`, `department` | All authenticated agents |
-| `compensation` | `employee`, `annual_salary_minor`, `currency`, `effective_date` | HR or an ancestor manager of the employee |
+| `compensation` | `employee`, `annual_salary_minor`, `currency`, `effective_date` | HR, the linked employee, or an ancestor manager of the employee |
 | `personal_details` | `employee`, `home_address`, `emergency_contact` | HR or the linked employee |
 | `hr_notes` | `employee`, `body` | HR only |
 | `account_links` | `account`, `employee` | Source-only; never exported |
@@ -139,7 +140,7 @@ Authenticate at `/api/collections/agents/auth-with-password` with an account's e
 }
 ```
 
-A manager sees only their direct and indirect reports' compensation, and cannot see their own salary merely because they are a manager. Someone above the employee in another reporting branch has no salary access. HR membership permits all compensation and notes. A shared account token shares its entire visibility; use individual identities.
+Each linked employee sees their own compensation, and managers also see their direct and indirect reports' compensation. Someone above the employee in another reporting branch has no salary access. HR membership permits all compensation and notes. A shared account token shares its entire visibility; use individual identities.
 
 The filters in `pocketcontext.json` are trusted application policy. They do not inherit PocketBase API rules. Source-only policy tables participate in filters but are absent from snapshot SQL and schema discovery. The salary filter derives ancestors with a recursive CTE rather than maintaining a copied grants table. All exports use one consistent source read transaction.
 
@@ -147,9 +148,9 @@ Counts, totals, and averages describe the requester's visible population. Succes
 
 ## Transfers and revocation
 
-To transfer an employee, an administrator updates that employee's `reporting_lines` record with a new `manager`. The next query by the old management chain loses access; the new management chain gains access. There is no closure table or cache to refresh. Self-management and cycles are rejected in execute hooks that check and save inside the same writer transaction, including batch operations and concurrent requests.
+To transfer an employee, an administrator updates that employee's `reporting_lines` record with a new `manager`. The next query by the old management chain loses access to the transferred employee; the new management chain gains access. The transferred employee keeps self access. There is no closure table or cache to refresh. Self-management and cycles are rejected in execute hooks that check and save inside the same writer transaction, including batch operations and concurrent requests.
 
-Removing an HR membership revokes its SQL and ordinary write privileges on subsequent requests. Removing or changing an account link changes self and manager visibility. A manager's account link does not grant HR privileges. A snapshot already in progress may finish under its captured policy; results already delivered cannot be revoked.
+Removing an HR membership revokes HR-derived SQL access and ordinary write privileges on subsequent requests; linked self access remains. Removing or changing an account link changes self and manager visibility. An unlinked account has no self access, even when its name or email matches an employee; no compensation row is created by linking an account. A manager's account link does not grant HR privileges. A snapshot already in progress may finish under its captured policy; results already delivered cannot be revoked.
 
 ## Verify
 

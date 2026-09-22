@@ -248,6 +248,7 @@ def main():
                 print('Starting isolated server and provisioning synthetic records...', flush=True)
                 demo.start()
                 print('Ready. Dana → Alice → Bob; Carol is a separate branch; Helen is HR.')
+                print('Everyone sees their own compensation; managers also see their reports; HR sees all.')
                 print('Credentials stay in memory. All data is temporary. Queries use agent tokens.')
                 print(HELP)
                 while True:

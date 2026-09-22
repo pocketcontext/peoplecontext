@@ -12,7 +12,7 @@
   "snapshot": {
     "filters": {
       "employees": "1",
-      "compensation": "EXISTS (SELECT 1 FROM hr_members h WHERE h.account = :requester) OR EXISTS (WITH RECURSIVE ancestors(employee) AS (SELECT manager FROM reporting_lines WHERE employee = compensation.employee UNION SELECT r.manager FROM reporting_lines r JOIN ancestors a ON r.employee = a.employee) SELECT 1 FROM ancestors a JOIN account_links l ON l.employee = a.employee WHERE l.account = :requester)",
+      "compensation": "EXISTS (SELECT 1 FROM hr_members h WHERE h.account = :requester) OR EXISTS (SELECT 1 FROM account_links l WHERE l.account = :requester AND l.employee = compensation.employee) OR EXISTS (WITH RECURSIVE ancestors(employee) AS (SELECT manager FROM reporting_lines WHERE employee = compensation.employee UNION SELECT r.manager FROM reporting_lines r JOIN ancestors a ON r.employee = a.employee) SELECT 1 FROM ancestors a JOIN account_links l ON l.employee = a.employee WHERE l.account = :requester)",
       "personal_details": "EXISTS (SELECT 1 FROM hr_members h WHERE h.account = :requester) OR EXISTS (SELECT 1 FROM account_links l WHERE l.account = :requester AND l.employee = personal_details.employee)",
       "hr_notes": "EXISTS (SELECT 1 FROM hr_members h WHERE h.account = :requester)"
     },

@@ -4,7 +4,7 @@ PeopleContext validates private HR records using PocketContext filtered snapshot
 
 Read application data through authenticated `/api/context/schema` and `/api/context/query`. Write records through PocketBase's standard REST API. Never use direct SQLite edits or seed employee records in migrations. Tests must provision synthetic records through REST in isolated temporary databases.
 
-Every employee uses an individual account in `agents`. Directory data is readable by all authenticated agents. Compensation is readable by HR and direct/indirect managers, with no automatic self access. Personal details are readable by the employee and HR. HR notes are readable by HR only. Account links, HR membership, and reporting lines are source-only policy tables, managed only by superusers. Ordinary HR record maintenance uses HR agent credentials.
+Every employee uses an individual account in `agents`. Directory data is readable by all authenticated agents. Compensation is readable by the linked employee, HR, and direct/indirect managers. Self access requires an administrator-managed account link. Personal details are readable by the employee and HR. HR notes are readable by HR only. Account links, HR membership, and reporting lines are source-only policy tables, managed only by superusers. Ordinary HR record maintenance uses HR agent credentials.
 
 Snapshot SQL filters enforce reads independently of PocketBase API rules. Lock private REST list/view routes and test expansions, realtime subscriptions, write responses, and batch operations for alternate access paths. Reject self-management and reporting cycles, including changes in batches and concurrent writes. Snapshot policy changes apply to the next request; in-flight snapshots can finish.
 
