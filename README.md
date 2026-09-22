@@ -6,6 +6,76 @@ The access model is directory access for authenticated employees; compensation f
 
 ## Run locally
 
+For an interactive synthetic demo with no manual account setup, run this from
+the workspace root (the command works in fish):
+
+```sh
+uv run peoplecontext/scripts/demo.py
+```
+
+This uses the existing `pocketcontext-filtered-snapshot/bin/pocketcontext` binary.
+For another checkout, pass `--binary /absolute/path/to/pocketcontext`, built from
+`POCKETCONTEXT_VERSION`. The CLI uses Python's standard library, starts a server
+on an available localhost port, and provisions five synthetic accounts through
+REST. It copies the application into a temporary directory and deletes that
+directory when you quit. It does not use an existing server or local `pb_data/`.
+Passwords and tokens remain in memory. Ordinary HR records are created as the
+HR agent; account and policy provisioning uses the temporary administrator.
+
+Type these commands at the `peoplecontext[alice]>` prompt, not in your shell:
+
+```text
+schema
+show
+as dana
+show
+as bob
+show
+as carol
+show
+as helen
+show
+```
+
+Everyone sees the five directory entries. Alice sees Bob's compensation; Dana
+sees Alice's and Bob's; Bob and Carol see none. Each sees only their own personal
+details and no HR notes. Helen, as HR, sees all compensation, details, and notes.
+No agent gains salary self-access merely from being an employee or manager.
+
+Transfer Bob to the other branch, then repeat queries with the original tokens:
+
+```text
+transfer bob carol
+as alice
+show
+as dana
+show
+as carol
+show
+```
+
+Alice loses Bob; Dana retains only Alice; Carol gains Bob. Revoke and restore HR:
+
+```text
+as helen
+hr off
+show
+hr on
+show
+bypass
+as bob
+bypass
+sql SELECT COUNT(*), SUM(annual_salary_minor) FROM compensation
+quit
+```
+
+Revoked Helen sees only the directory and her own personal details. Restoration
+returns her HR visibility without logging in again. `bypass` checks rejection of
+policy/auth table queries and direct compensation REST reads, including for HR.
+Bob's aggregate is zero rows counted and a null sum. `transfer` and `hr` explicitly
+use the demo administrator; `show`, `schema`, `sql`, and `bypass` use the selected
+agent. Type `help` for the command list. Each new run starts a fresh demo.
+
 Use the server commit in `POCKETCONTEXT_VERSION`. This pin includes filtered snapshots; the application must not use shared SQL access. With Go from that server's `go.mod`, a C compiler, and CGO available, run from this directory:
 
 ```sh
