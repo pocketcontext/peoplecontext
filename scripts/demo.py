@@ -235,8 +235,8 @@ class Demo:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary', type=Path,
-                        default=ROOT.parent / 'pocketcontext-filtered-snapshot/bin/pocketcontext',
-                        help='Server built from POCKETCONTEXT_VERSION (defaults to workspace snapshot binary)')
+                        default=ROOT.parent / 'pocketcontext/bin/pocketcontext',
+                        help='Server built from POCKETCONTEXT_VERSION (defaults to workspace server binary)')
     args = parser.parse_args()
     binary = args.binary.expanduser().resolve()
     if not binary.is_file():

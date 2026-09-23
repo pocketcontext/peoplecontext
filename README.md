@@ -13,7 +13,7 @@ the workspace root (the command works in fish):
 uv run peoplecontext/scripts/demo.py
 ```
 
-This uses the existing `pocketcontext-filtered-snapshot/bin/pocketcontext` binary.
+This uses the existing `pocketcontext/bin/pocketcontext` binary.
 For another checkout, pass `--binary /absolute/path/to/pocketcontext`, built from
 `POCKETCONTEXT_VERSION`. The CLI uses Python's standard library, starts a server
 on an available localhost port, and provisions five synthetic accounts through
