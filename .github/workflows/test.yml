@@ -50,3 +50,5 @@ jobs:
         run: python3 peoplecontext/tests/skill.py --binary pocketcontext/bin/pocketcontext
       - name: Safe deployment orchestration
         run: python3 peoplecontext/tests/deploy_workflow.py
+      - name: Deployment configuration
+        run: python3 peoplecontext/tests/deploy.py --binary pocketcontext/bin/pocketcontext

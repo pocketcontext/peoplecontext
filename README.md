@@ -224,6 +224,7 @@ python3 tests/oauth.py
 python3 tests/oauth_integration.py --binary ../peoplecontext-server/bin/pocketcontext
 python3 tests/skill.py --binary ../peoplecontext-server/bin/pocketcontext
 python3 tests/deploy_workflow.py
+python3 tests/deploy.py --binary ../peoplecontext-server/bin/pocketcontext
 python3 docker/smoke.py config --image peoplecontext:ci
 python3 docker/smoke.py smoke --image peoplecontext:ci
 python3 docker/smoke.py restore --image peoplecontext:ci
