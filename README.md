@@ -93,7 +93,7 @@ The application directory supplies `pocketcontext.json`, `pb_migrations`, and `p
 
 An administrator provisions the first superuser with PocketContext's `superuser upsert` command against the same data directory, then uses PocketBase's standard REST API or dashboard. Keep operator credentials out of agent environments, command logs, and source control.
 
-Create records through `POST /api/collections/{collection}/records`, update them through `PATCH /api/collections/{collection}/records/{id}`, and delete them through the corresponding `DELETE` route. Administrative setup is:
+Create records through `POST /api/collections/{collection}/records`, update them through `PATCH /api/collections/{collection}/records/{id}`, and delete permitted business records through the corresponding `DELETE` route. Account deletion is blocked; disable accounts instead. Administrative setup is:
 
 1. Create individual `agents` accounts with `name`, `email`, `password`, and `passwordConfirm`.
 2. Create an `hr_members` row whose `account` is the HR account's id. HR authorization is separate from an employee/account link.
@@ -126,7 +126,7 @@ Compensation and personal details each have one record per employee. Salary is a
 }
 ```
 
-HR agents can create, update, and delete directory, compensation, personal-detail, and note records. Employees and managers have no ordinary record-write permissions. Required noncascading relations prevent deletion of referenced employees or accounts from silently changing authority; an administrator must explicitly resolve those references first.
+HR agents can create, update, and delete directory, compensation, personal-detail, and note records. Employees and managers have no ordinary record-write permissions. Required noncascading relations prevent deletion of referenced employees from silently changing authority; an administrator must explicitly resolve those references first. Accounts cannot be deleted.
 
 All collection list/view routes are locked to ordinary agents, including HR. This also restricts relation expansion and realtime record delivery. Read through the context routes. Successful authorized REST writes return their own record payloads; HR writers already have snapshot access to those records. The batch API allows up to 20 operations and uses a five-second timeout.
 
