@@ -23,7 +23,7 @@ class ConfigurationContract(unittest.TestCase):
             with self.subTest(table=name):
                 self.assertTrue(columns)
                 self.assertNotIn('*', columns)
-                self.assertFalse({'password', 'tokenKey', 'email', 'emailVisibility'} & set(columns))
+                self.assertFalse({'password', 'tokenKey', 'email', 'work_email', 'emailVisibility'} & set(columns))
 
     def test_every_private_export_requires_server_bound_identity(self):
         filters = self.config['snapshot']['filters']

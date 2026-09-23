@@ -1,0 +1,120 @@
+{
+  "tables": [
+    {
+      "name": "compensation",
+      "columns": [
+        {
+          "name": "annual_salary_minor",
+          "type": "NUMERIC"
+        },
+        {
+          "name": "created",
+          "type": "TEXT"
+        },
+        {
+          "name": "currency",
+          "type": "TEXT"
+        },
+        {
+          "name": "effective_date",
+          "type": "TEXT"
+        },
+        {
+          "name": "employee",
+          "type": "TEXT"
+        },
+        {
+          "name": "id",
+          "type": "TEXT"
+        },
+        {
+          "name": "updated",
+          "type": "TEXT"
+        }
+      ]
+    },
+    {
+      "name": "employees",
+      "columns": [
+        {
+          "name": "created",
+          "type": "TEXT"
+        },
+        {
+          "name": "department",
+          "type": "TEXT"
+        },
+        {
+          "name": "id",
+          "type": "TEXT"
+        },
+        {
+          "name": "job_title",
+          "type": "TEXT"
+        },
+        {
+          "name": "name",
+          "type": "TEXT"
+        },
+        {
+          "name": "updated",
+          "type": "TEXT"
+        }
+      ]
+    },
+    {
+      "name": "hr_notes",
+      "columns": [
+        {
+          "name": "body",
+          "type": "TEXT"
+        },
+        {
+          "name": "created",
+          "type": "TEXT"
+        },
+        {
+          "name": "employee",
+          "type": "TEXT"
+        },
+        {
+          "name": "id",
+          "type": "TEXT"
+        },
+        {
+          "name": "updated",
+          "type": "TEXT"
+        }
+      ]
+    },
+    {
+      "name": "personal_details",
+      "columns": [
+        {
+          "name": "created",
+          "type": "TEXT"
+        },
+        {
+          "name": "emergency_contact",
+          "type": "TEXT"
+        },
+        {
+          "name": "employee",
+          "type": "TEXT"
+        },
+        {
+          "name": "home_address",
+          "type": "TEXT"
+        },
+        {
+          "name": "id",
+          "type": "TEXT"
+        },
+        {
+          "name": "updated",
+          "type": "TEXT"
+        }
+      ]
+    }
+  ]
+}

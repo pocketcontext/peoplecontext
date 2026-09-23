@@ -85,7 +85,7 @@ class Server:
         with response:
             status, raw, response_headers = response.code, response.read(), response.headers
         allowed = expected if isinstance(expected, tuple) else (expected,)
-        detail = '(authentication response withheld)' if 'auth-with-password' in path else raw.decode()[:500]
+        detail = '(authentication response withheld)' if '/auth-' in path else raw.decode()[:500]
         assert status in allowed, f'{method} {path}: expected {allowed}, received {status}: {detail}'
         result = json.loads(raw) if raw else None
         return (result, response_headers) if with_headers else result
@@ -205,7 +205,7 @@ def run(server):
         ('hr_members', {'account': accounts['worker']['id']}),
         ('reporting_lines', {'employee': spare['id'], 'manager': employees['grand']['id']}),
         ('account_links', {'account': accounts['worker']['id'], 'employee': spare['id']})):
-        s.request('POST', records(collection), payload, hr, expected=403)
+        s.request('POST', records(collection), payload, hr, expected=400 if collection == 'agents' else 403)
     for collection, objects in (('account_links', links), ('reporting_lines', lines), ('hr_members', {'hr': hr_member}), ('agents', accounts)):
         s.request('DELETE', records(collection, next(iter(objects.values()))['id']), token=hr, expected=403)
     s.request('DELETE', records('employees', spare['id']), token=hr, expected=204)

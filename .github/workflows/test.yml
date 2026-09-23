@@ -4,6 +4,7 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -41,3 +42,11 @@ jobs:
         run: python3 -m unittest discover -s tests
       - name: HR integration tests
         run: python3 peoplecontext/tests/integration.py --binary pocketcontext/bin/pocketcontext
+      - name: OAuth and employee linking
+        run: python3 peoplecontext/tests/oauth_integration.py --binary pocketcontext/bin/pocketcontext
+      - name: OAuth client
+        run: python3 peoplecontext/tests/oauth.py
+      - name: Portable HR skill
+        run: python3 peoplecontext/tests/skill.py --binary pocketcontext/bin/pocketcontext
+      - name: Safe deployment orchestration
+        run: python3 peoplecontext/tests/deploy_workflow.py
