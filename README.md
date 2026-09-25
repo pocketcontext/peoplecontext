@@ -183,12 +183,12 @@ Copy `skills/peoplecontext/` to your agent's skills directory. The client needs 
 ssh -L 8765:127.0.0.1:8765 user@ssh-host
 ```
 
-On the SSH host, run:
+On the SSH host, replace `/absolute/path/to/peoplecontext` with the installed skill directory containing `SKILL.md`, then run from any working directory:
 
 ```sh
-python3 skills/peoplecontext/scripts/pc.py login --google
-python3 skills/peoplecontext/scripts/pc.py whoami
-python3 skills/peoplecontext/scripts/pc.py check
+python3 "/absolute/path/to/peoplecontext/scripts/pc.py" login --google
+python3 "/absolute/path/to/peoplecontext/scripts/pc.py" whoami
+python3 "/absolute/path/to/peoplecontext/scripts/pc.py" check
 ```
 
 Open the printed Google URL on your laptop. The private PocketBase token cache is under `$XDG_CACHE_HOME/peoplecontext/` or `~/.cache/peoplecontext/` with mode 0600. Active Google sessions renew after five minutes or near expiry; `whoami` always refreshes. Tokens expire seven days after issuance/refresh, with no absolute renewal limit or background refresh. Expired/revoked tokens require another browser login. `logout` only removes the local copy. Provisioned password accounts may use `PEOPLECONTEXT_AGENT_PASSWORD`.

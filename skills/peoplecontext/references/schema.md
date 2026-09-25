@@ -15,8 +15,8 @@ The auth collection `agents` and policy collections `account_links`, `hr_members
 
 All ordinary REST list/view routes are locked, including for HR; successful authorized writes return their own payloads. Read with filtered SQL, never relation expansion or realtime as a substitute. Authority changes apply on subsequent requests; in-flight snapshots may finish. Revoking HR membership can leave self/manager access intact.
 
-Example:
+Example (replace `/absolute/path/to/peoplecontext` with the directory containing the installed `SKILL.md`):
 
 ```sh
-python3 scripts/pc.py sql 'SELECT e.name, c.annual_salary_minor, c.currency FROM compensation c JOIN employees e ON e.id = c.employee ORDER BY e.name'
+python3 "/absolute/path/to/peoplecontext/scripts/pc.py" sql 'SELECT e.name, c.annual_salary_minor, c.currency FROM compensation c JOIN employees e ON e.id = c.employee ORDER BY e.name'
 ```
