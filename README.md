@@ -231,3 +231,7 @@ python3 docker/smoke.py restore --image peoplecontext:ci
 ```
 
 All fixtures are synthetic and isolated. Real Google login requires a human browser after deployment.
+
+## Optional observability
+
+The pinned server supports per-request, requester-owned buffer tracing. Ordinary requests remain untraced. See [the portable skill](skills/peoplecontext/SKILL.md#optional-request-tracing) for separate ObserveContext login, command capture, SQL disclosure and retry instructions. Filtered snapshot timings preserve the application’s existing read policies. Validate adoption with `python3 tests/tracing.py --binary /absolute/path/to/pinned/pocketcontext`.

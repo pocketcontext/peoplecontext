@@ -52,3 +52,5 @@ jobs:
         run: python3 peoplecontext/tests/deploy_workflow.py
       - name: Deployment configuration
         run: python3 peoplecontext/tests/deploy.py --binary pocketcontext/bin/pocketcontext
+      - name: Test opt-in tracing and snapshot ownership
+        run: python3 peoplecontext/tests/tracing.py --binary pocketcontext/bin/pocketcontext
