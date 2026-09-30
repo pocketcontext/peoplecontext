@@ -31,6 +31,7 @@ def run(binary):
         shutil.copytree(ROOT/'ui/dist',pathlib.Path(temp)/'ui/dist')
         try:
             user=s.create('agents',dict(email='reader@example.com',name='Reader',password=PASSWORD,passwordConfirm=PASSWORD))
+            other=s.create('agents',dict(email='other@example.com',name='Other',password=PASSWORD,passwordConfirm=PASSWORD))
             role=s.create('hr_members',{'account':user['id']})
             token=s.login('agents','reader@example.com',PASSWORD)
             create=lambda table,body:s.create(table,body,token)
@@ -38,7 +39,7 @@ def run(binary):
             first=records[0]
             note=create('hr_notes',{'employee':first['id'],'body':'Private personnel evidence'})
             personal=create('personal_details',{'employee':first['id'],'home_address':'Restricted address'})
-            fixture=dict(email='reader@example.com',password=PASSWORD,table='employees',label='People',id=first['id'],title=first['name'],needle=records[-1]['name'],forbiddenTable='hr_notes',forbiddenId='missing00000001',revokeId=note['id'],forbiddenText='Private personnel evidence',relationTitle='Private personnel evidence',relationTable='hr_notes',relationId=note['id'])
+            fixture=dict(authCollection='agents',otherEmail='other@example.com',privateTable='hr_notes',privateId=note['id'],privateText=note['body'],email='reader@example.com',password=PASSWORD,table='employees',label='People',id=first['id'],title=first['name'],needle=records[-1]['name'],forbiddenTable='hr_notes',forbiddenId='missing00000001',revokeId=note['id'],forbiddenText='Private personnel evidence',relationTitle='Private personnel evidence',relationTable='hr_notes',relationId=note['id'])
             def action(path):
                 if path=='/revoke':s.request('DELETE','/api/collections/hr_members/records/'+role['id'],token=s.admin,expected=204)
             browser(s.base,fixture,action)
