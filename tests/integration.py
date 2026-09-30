@@ -30,7 +30,7 @@ class Server:
         shutil.copy2(ROOT / 'pocketcontext.json', self.root / 'pocketcontext.json')
         self.common = [str(Path(binary).resolve()), '--dir', str(self.root / 'pb_data'),
                        '--migrationsDir', str(self.root / 'pb_migrations'), '--hooksDir', str(self.root / 'pb_hooks')]
-        self.password = secrets.token_urlsafe(24)
+        self.password = 'Synthetic-' + secrets.token_urlsafe(24)
         result = subprocess.run(self.common + ['superuser', 'upsert', 'admin@example.test', self.password],
                                 cwd=self.root, capture_output=True)
         if result.returncode:

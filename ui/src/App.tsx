@@ -306,11 +306,17 @@ export default function App() {
     return () => window.removeEventListener("hashchange", listener);
   }, []);
   function navigate(table: string, id: string, params: URLSearchParams) {
-    location.hash =
-      "/" +
+    // Internal navigation must update state synchronously. A queued hashchange
+    // can otherwise erase text typed immediately after changing a page/filter.
+    const hash =
+      "#/" +
       table +
       (id ? "/" + id : "") +
       (params.size ? "?" + params.toString() : "");
+    history.pushState(null, "", hash);
+    const next = parseRoute();
+    setRoute(next);
+    setQ(next.params.get("q") || "");
   }
   useEffect(() => {
     if (q === (route.params.get("q") || "")) return;

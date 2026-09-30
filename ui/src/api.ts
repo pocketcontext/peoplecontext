@@ -39,7 +39,10 @@ export async function query(sql: string): Promise<Row[]> {
       Object.fromEntries(r.columns.map((c, i) => [c, row[i]])),
     );
   } catch (e) {
-    if ((e as { status?: number }).status === 401 && token === store.token)
+    if (
+      [401, 403].includes((e as { status?: number }).status || 0) &&
+      token === store.token
+    )
       store.clear();
     throw e;
   }
