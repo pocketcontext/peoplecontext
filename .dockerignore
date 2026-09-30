@@ -7,3 +7,9 @@
 !pb_hooks/*.js
 !docker/entrypoint.sh
 !docker/litestream.yml
+
+!ui/
+!ui/**
+ui/node_modules/
+ui/dist/
+ui/test-results/

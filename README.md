@@ -1,6 +1,6 @@
 # PeopleContext
 
-An HR application that validates PocketContext filtered snapshots. It contains collections, migrations, policy configuration, hooks, and synthetic integration tests, with no frontend. PocketContext supplies the server.
+An HR application that validates PocketContext filtered snapshots. It contains collections, migrations, policy configuration, hooks, and synthetic integration tests, with an authenticated read-only browser reader. PocketContext supplies the server.
 
 The access model is directory access for authenticated employees; compensation for self, HR, and the employee's direct or indirect managers; personal details for self and HR; confidential HR notes for HR only. Self access requires an account link, managed by an operator or created on validated Google login from a matching operator-managed work email. Administrators manage account links, HR roles, and reporting relationships.
 
@@ -87,7 +87,7 @@ make -C ../peoplecontext-server build
   --dir ./pb_data --http 127.0.0.1:8092
 ```
 
-The application directory supplies `pocketcontext.json`, `pb_migrations`, and `pb_hooks`. Startup applies schema migrations. Migrations create no accounts or personnel records. Keep `pb_data/` outside Git and separate from every other application. The container/deployment configuration below supports production; no application frontend is supplied.
+The application directory supplies `pocketcontext.json`, `pb_migrations`, and `pb_hooks`. Startup applies schema migrations. Migrations create no accounts or personnel records. Keep `pb_data/` outside Git and separate from every other application. The container/deployment configuration below supports production; the authenticated browser reader is served at the application origin.
 
 ## Provision accounts and policy
 
@@ -235,3 +235,11 @@ All fixtures are synthetic and isolated. Real Google login requires a human brow
 ## Optional observability
 
 The pinned server supports per-request, requester-owned buffer tracing. Ordinary requests remain untraced. See [the portable skill](skills/peoplecontext/SKILL.md#optional-request-tracing) for separate ObserveContext login, command capture, SQL disclosure and retry instructions. Filtered snapshot timings preserve the application’s existing read policies. Validate adoption with `python3 tests/tracing.py --binary /absolute/path/to/pinned/pocketcontext`.
+
+## Browser reader
+
+The application origin serves a read-only reader inspired by WikiContext. Choose a business collection, search all authorized records, page through results, and follow explicit outgoing and reverse relationships. Stable `/#/<collection>/<record-id>` links survive login and reload; Copy record link omits search state while Copy search link preserves it. URLs show current records, not immutable historical snapshots. Search/filter state stays in the URL, so avoid sharing a search containing private terms.
+
+Each request uses the existing filtered SQL snapshot. Related labels and lists are resolved through the same permissions, never unrestricted record expansion. Browser auth is per-tab and logout clears it. Password and configured Google login use ordinary application identities. Markdown is rendered without raw HTML or remote images. On mobile the collection sidebar collapses into a Browse drawer. No record editing or acknowledgement is performed.
+
+Build with Node.js 24 and pnpm 10.33.2 from `ui/`: `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm test`, and `pnpm build`. Then start the pinned server from the repository root. Run `python3 tests/ui_browser.py --binary /absolute/path/to/pinned/pocketcontext` after installing Chromium with `pnpm exec playwright install chromium` in `ui/`. Container builds include the reader; generated bundles are not committed.
