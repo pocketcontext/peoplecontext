@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["peoplecontext-client @ git+https://github.com/pocketcontext/peoplecontext.git@a6d507d5e67a005afe8ff425bec0cf90e8943b32"]
+# dependencies = ["peoplecontext-client @ git+https://github.com/pocketcontext/peoplecontext.git@ba26d25ca55b240472aba74617790ef79c56736d"]
 # ///
 from peoplecontext_client.cli import main
 
