@@ -1,3 +1,25 @@
+## Packaged CLI and opt-in tracing — 4 October 2026
+
+Deployed source `7870b06245aef0671b233913a447a0a37bf146d6` at `https://people.pocketcontext.com`.
+Image `sha256:996fc1e0f3c44d9abf91637b6f52eb9314228b03a4109f44c8a35a3f4ac2dba4`; server pin `a92b0de5e1b66b6d3b6135b90092d2d6da5f7cc8` is unchanged.
+The standalone `peoplecontext` uv launcher pins package `ba26d25ca55b240472aba74617790ef79c56736d`.
+Old script entry points are removed; no compatibility wrappers are provided.
+
+[Release CI](https://github.com/pocketcontext/peoplecontext/actions/runs/37193928046) passed application, browser, container configuration,
+smoke and populated recovery gates before publication. Copied remote launchers
+passed isolated workflow and tracing tests. A predeployment backup was verified;
+the update used the gated CI locked wrapper. Exact runtime revision, one writer,
+existing resource settings and disabled automatic updates were verified.
+Public health and anonymous SQL-schema rejection passed; the installed CLI's
+live schema check passed. Eight source apps passed a live `SELECT 1` capture
+with paired client/server traces and SQL text excluded. No business records
+were created; diagnostic traces were uploaded to ObserveContext.
+
+VaultContext was excluded from this migration. A separate VaultContext release
+was observed during the window and was left untouched. Five other unrelated
+containers retained their IDs, images and settings. The private scaffold records
+the coordinated release matrix and verification evidence.
+
 # PeopleContext production deployment
 
 Date: 2026-09-24. Origin: https://people.pocketcontext.com. Dashboard: `/_/` (separate operator login). No application frontend or real employee seed data.
