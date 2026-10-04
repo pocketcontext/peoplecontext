@@ -5,15 +5,17 @@ description: Read employee information and maintain authorized HR records in Peo
 
 # PeopleContext
 
-Paths in this file are relative to the directory that contains this `SKILL.md`. Use its `scripts/pc.py` (Python 3 standard library) for this application's authenticated operations. The script works from any working directory; call it by its full absolute path. Before reporting a missing client, check `scripts/pc.py` beside the loaded `SKILL.md`, including when the skill is installed in a hidden directory such as `.agents/skills/`.
+Paths in this file are relative to the directory that contains this `SKILL.md`. Use its `peoplecontext` (uv launcher) for this application's authenticated operations. The script works from any working directory; call it by its full absolute path. Before reporting a missing client, check `peoplecontext` beside the loaded `SKILL.md`, including when the skill is installed in a hidden directory such as `.agents/skills/`.
 
 In the examples, replace `/absolute/path/to/peoplecontext` with that installed skill directory.
 
 Configure `PEOPLECONTEXT_URL` and `PEOPLECONTEXT_AGENT_EMAIL`; Google login does not require `PEOPLECONTEXT_AGENT_PASSWORD`. If missing, ask the user; never search for operator credentials.
 
+The launcher requires uv and Python 3.11 or later; its first run installs the pinned package.
+
 ## Sign in
 
-Run `python3 "/absolute/path/to/peoplecontext/scripts/pc.py" login --google`. Open the printed URL in the user's browser. For an SSH session, first forward `8765:127.0.0.1:8765` from the browser's machine. Callback URI: `http://127.0.0.1:8765/callback`. Keep the URL private. Workspace JIT creates an account; a verified matching employee work email can establish the employee link. A disabled account needs operator help, not a new identity.
+Run `"/absolute/path/to/peoplecontext/peoplecontext" login --google`. Open the printed URL in the user's browser. For an SSH session, first forward `8765:127.0.0.1:8765` from the browser's machine. Callback URI: `http://127.0.0.1:8765/callback`. Keep the URL private. Workspace JIT creates an account; a verified matching employee work email can establish the employee link. A disabled account needs operator help, not a new identity.
 
 The client privately caches the PocketBase token under `$XDG_CACHE_HOME/peoplecontext/` or `~/.cache/peoplecontext/`. Tokens last seven days and renew during use; `whoami` requests renewal. Expired/revoked Google sessions require browser login. `logout` removes only the local cache. No Google secret belongs in the client environment. Password login remains supported for provisioned accounts.
 
@@ -29,18 +31,18 @@ Use `--help` for arguments. Pass JSON or SQL as `-` on stdin when appropriate. D
 
 ## Optional request tracing
 
-Ordinary commands do not collect or upload traces. Install the separate ObserveContext skill to opt in for one command. Authenticate with this app normally, then set `OBSERVECONTEXT_URL=https://observe.pocketcontext.com` and `OBSERVECONTEXT_USER_EMAIL` to your Workspace email and run `python3 /path/to/observecontext/scripts/oc.py login --google` separately. ObserveContext uses its own account and token; no ObserveContext credentials belong on this application server.
+Ordinary commands do not collect or upload traces. Install the separate ObserveContext skill to opt in for one command. Authenticate with this app normally, then set `OBSERVECONTEXT_URL=https://observe.pocketcontext.com` and `OBSERVECONTEXT_USER_EMAIL` to your Workspace email and run `/path/to/observecontext/observecontext login --google` separately. ObserveContext uses its own account and token; no ObserveContext credentials belong on this application server.
 
 ```sh
-python3 /path/to/observecontext/scripts/oc.py capture \
-  --url "${PEOPLECONTEXT_URL}" --service peoplecontext.client --upload \
-  /path/to/peoplecontext/scripts/pc.py \
+/path/to/observecontext/observecontext capture \
+  --url "${PEOPLECONTEXT_URL}" --service peoplecontext.client --upload -- \
+  /path/to/peoplecontext/peoplecontext \
   query 'SELECT id FROM employees LIMIT 5'
 ```
 
 Add `--capture-sql` only when you intend to retain submitted SQL, including potentially private literals. Without it, capture retains timings but no SQL text. The client can record its submitted SQL independently of server SQL-capture settings. Traces exclude result rows, credentials, request bodies and response bodies. The operation is private to its ObserveContext owner except for an operator-managed view-all role. Capture does not grant anyone additional application data access.
 
-The server keeps requested traces in a bounded 16 MiB memory buffer with short expiry; only the requesting authenticated account can retrieve them. The wrapper retrieves server traces and uploads client/server timings together. Failed delivery stays in an account-bound local queue; use `oc.py flush` with the same ObserveContext identity to retry and `oc.py dashboard` for the personal loopback dashboard. No collector service is needed. Capture adds retrieval/upload latency and covers in-process Python urllib SQL/REST requests, not whole agent sessions, prompts, file downloads or realtime streams. Existing immutable traces cannot acquire SQL text retroactively.
+The server keeps requested traces in a bounded 16 MiB memory buffer with short expiry; only the requesting authenticated account can retrieve them. The instrumented client retrieves server traces and uploads client/server timings together. Failed delivery stays in an account-bound local queue; use `observecontext flush` with the same ObserveContext identity to retry and `observecontext dashboard` for the personal loopback dashboard. No collector service is needed. Capture adds retrieval/upload latency and covers in-process Python urllib SQL/REST requests, not whole agent sessions, prompts, file downloads or realtime streams. Existing immutable traces cannot acquire SQL text retroactively.
 
 ## Browser record links
 

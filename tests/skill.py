@@ -27,10 +27,11 @@ def main():
             schema = s.request('GET', '/api/context/schema', token=s.login('agents', 'hr@example.test', password))
             if args.write_schema:
                 (ROOT/'skills/peoplecontext/references/schema.json').write_text(json.dumps({'tables': schema['tables']}, indent=2)+'\n')
+                (ROOT/'src/peoplecontext_client/schema.json').write_text((ROOT/'skills/peoplecontext/references/schema.json').read_text())
             shutil.copytree(ROOT/'skills/peoplecontext', root/'installed')
             env = {**os.environ, 'PEOPLECONTEXT_URL': s.base, 'PEOPLECONTEXT_AGENT_EMAIL': 'hr@example.test', 'PEOPLECONTEXT_AGENT_PASSWORD': password, 'XDG_CACHE_HOME': str(root/'cache')}
             def cli(*command, code=0):
-                r = subprocess.run([sys.executable, str(root/'installed/scripts/pc.py'), *command], env=env, capture_output=True, text=True)
+                r = subprocess.run([sys.executable, str(root/'installed/peoplecontext'), *command], env=env, capture_output=True, text=True)
                 assert r.returncode == code, (command[0], r.returncode, r.stderr)
                 assert password not in r.stdout+r.stderr
                 assert 'eyJ' not in r.stdout+r.stderr

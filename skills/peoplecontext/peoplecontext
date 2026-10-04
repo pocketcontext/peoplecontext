@@ -1,0 +1,9 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["peoplecontext-client @ git+https://github.com/pocketcontext/peoplecontext.git@f7eeedb8bfe3139eae0b2756ca75208b3bc7008f"]
+# ///
+from peoplecontext_client.cli import main
+
+if __name__ == "__main__":
+    raise SystemExit(main())

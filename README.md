@@ -177,7 +177,7 @@ Operators disable an account with `PATCH /api/collections/agents/records/<id>` a
 
 ## Install the PeopleContext skill
 
-Copy `skills/peoplecontext/` to your agent's skills directory. The client needs only Python 3's standard library. Configure `PEOPLECONTEXT_URL=https://people.pocketcontext.com` and `PEOPLECONTEXT_AGENT_EMAIL` with your Workspace email. For an SSH session, connect from your laptop with:
+Copy `skills/peoplecontext/` to your agent's skills directory. The client requires uv and Python 3.11 or later. Configure `PEOPLECONTEXT_URL=https://people.pocketcontext.com` and `PEOPLECONTEXT_AGENT_EMAIL` with your Workspace email. For an SSH session, connect from your laptop with:
 
 ```sh
 ssh -L 8765:127.0.0.1:8765 user@ssh-host
@@ -186,9 +186,9 @@ ssh -L 8765:127.0.0.1:8765 user@ssh-host
 On the SSH host, replace `/absolute/path/to/peoplecontext` with the installed skill directory containing `SKILL.md`, then run from any working directory:
 
 ```sh
-python3 "/absolute/path/to/peoplecontext/scripts/pc.py" login --google
-python3 "/absolute/path/to/peoplecontext/scripts/pc.py" whoami
-python3 "/absolute/path/to/peoplecontext/scripts/pc.py" check
+"/absolute/path/to/peoplecontext/peoplecontext" login --google
+"/absolute/path/to/peoplecontext/peoplecontext" whoami
+"/absolute/path/to/peoplecontext/peoplecontext" check
 ```
 
 Open the printed Google URL on your laptop. The private PocketBase token cache is under `$XDG_CACHE_HOME/peoplecontext/` or `~/.cache/peoplecontext/` with mode 0600. Active Google sessions renew after five minutes or near expiry; `whoami` always refreshes. Tokens expire seven days after issuance/refresh, with no absolute renewal limit or background refresh. Expired/revoked tokens require another browser login. `logout` only removes the local copy. Provisioned password accounts may use `PEOPLECONTEXT_AGENT_PASSWORD`.
@@ -243,3 +243,9 @@ The application origin serves a read-only reader inspired by WikiContext. Choose
 Each request uses the existing filtered SQL snapshot. Related labels and lists are resolved through the same permissions, never unrestricted record expansion. Browser authentication uses the official PocketBase JavaScript SDK LocalAuthStore with an application-specific key. Sign-in persists across tabs and browser restarts in the same browser profile and origin; logout propagates to other tabs but does not revoke copied tokens. Tokens are accessible to application JavaScript, so sign out on shared devices. Existing per-tab sessions are discarded on upgrade and require one new login. Session changes clear displayed private data and subscriptions; stale requests cannot restore an earlier session. Active sessions refresh on startup or focus, at most once per five minutes. Realtime and file access retain their independent authorization; these readers do not subscribe to record events. Password and configured Google login use ordinary application identities. Markdown is rendered without raw HTML or remote images. On mobile the collection sidebar collapses into a Browse drawer. No record editing or acknowledgement is performed.
 
 Build with Node.js 24 and pnpm 10.33.2 from `ui/`: `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm test`, and `pnpm build`. Then start the pinned server from the repository root. Run `python3 tests/ui_browser.py --binary /absolute/path/to/pinned/pocketcontext` after installing Chromium with `pnpm exec playwright install chromium` in `ui/`. Container builds include the reader; generated bundles are not committed.
+
+## Packaged CLI development
+
+Install uv, then run `uv venv` and `uv pip install -e .`. Activate `.venv` before running the Python validation commands above. The full-name command is `peoplecontext`; old script paths and short aliases are removed. The installed skill launcher requires uv and Python 3.11 or later and fetches its package at a full Git commit. Initial installation requires network access.
+
+The implementation and bundled schema live in `src/peoplecontext_client/`; keep its schema snapshot identical to `skills/peoplecontext/references/schema.json`. Publish and test the package commit before updating the launcher to that commit. The ObserveContext dependency is pinned separately. Tracing is inactive unless explicitly enabled by `observecontext capture -- peoplecontext ...`; capture failures must preserve the command result.

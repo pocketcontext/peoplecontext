@@ -18,6 +18,13 @@ jobs:
         with:
           path: peoplecontext
           persist-credentials: false
+      - name: Install packaged CLI
+        run: |
+          python3 -m venv "$RUNNER_TEMP/context-client"
+          "$RUNNER_TEMP/context-client/bin/pip" install ./peoplecontext
+          echo "$RUNNER_TEMP/context-client/bin" >> "$GITHUB_PATH"
+      - name: Test packaged resources and launcher
+        run: python3 peoplecontext/tests/packaging.py
       - name: Read server revision
         id: server
         shell: bash

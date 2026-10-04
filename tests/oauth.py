@@ -16,7 +16,7 @@ import urllib.parse
 import urllib.request
 from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location('tc', Path(__file__).resolve().parents[1] / 'skills/peoplecontext/scripts/pc.py')
+spec = importlib.util.spec_from_file_location('tc', Path(__file__).resolve().parents[1] / 'src/peoplecontext_client/cli.py')
 tc = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(tc)
 

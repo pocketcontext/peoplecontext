@@ -18,5 +18,5 @@ All ordinary REST list/view routes are locked, including for HR; successful auth
 Example (replace `/absolute/path/to/peoplecontext` with the directory containing the installed `SKILL.md`):
 
 ```sh
-python3 "/absolute/path/to/peoplecontext/scripts/pc.py" sql 'SELECT e.name, c.annual_salary_minor, c.currency FROM compensation c JOIN employees e ON e.id = c.employee ORDER BY e.name'
+"/absolute/path/to/peoplecontext/peoplecontext" sql 'SELECT e.name, c.annual_salary_minor, c.currency FROM compensation c JOIN employees e ON e.id = c.employee ORDER BY e.name'
 ```
