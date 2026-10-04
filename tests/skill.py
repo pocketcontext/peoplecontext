@@ -14,6 +14,7 @@ from integration import Server, ROOT
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--binary', required=True)
+    parser.add_argument('--client', help='Executable release launcher to exercise; package mutation checks still use the local test copy')
     parser.add_argument('--write-schema', action='store_true')
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix='peoplecontext-skill-') as tmp:
@@ -29,9 +30,10 @@ def main():
                 (ROOT/'skills/peoplecontext/references/schema.json').write_text(json.dumps({'tables': schema['tables']}, indent=2)+'\n')
                 (ROOT/'src/peoplecontext_client/schema.json').write_text((ROOT/'skills/peoplecontext/references/schema.json').read_text())
             shutil.copytree(ROOT/'skills/peoplecontext', root/'installed')
-            env = {**os.environ, 'PEOPLECONTEXT_URL': s.base, 'PEOPLECONTEXT_AGENT_EMAIL': 'hr@example.test', 'PEOPLECONTEXT_AGENT_PASSWORD': password, 'XDG_CACHE_HOME': str(root/'cache')}
+            env = {**os.environ, 'UV_PYTHON': sys.executable, 'UV_CACHE_DIR': str(root/'uv-cache'), 'PEOPLECONTEXT_URL': s.base, 'PEOPLECONTEXT_AGENT_EMAIL': 'hr@example.test', 'PEOPLECONTEXT_AGENT_PASSWORD': password, 'XDG_CACHE_HOME': str(root/'cache')}
             def cli(*command, code=0):
-                r = subprocess.run([sys.executable, str(root/'installed/peoplecontext'), *command], env=env, capture_output=True, text=True)
+                executable = [str(Path(args.client).resolve())] if args.client else [sys.executable, str(root/'installed/peoplecontext')]
+                r = subprocess.run([*executable, *command], env=env, capture_output=True, text=True)
                 assert r.returncode == code, (command[0], r.returncode, r.stderr)
                 assert password not in r.stdout+r.stderr
                 assert 'eyJ' not in r.stdout+r.stderr
