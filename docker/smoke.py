@@ -305,6 +305,24 @@ def smoke(image, tmp, run_id):
     check_records(client, project, issue)
     text = check_logs(name)
     check('pbinstall' not in text, 'the logs contain no superuser installation link')
+    step('freeze and restart the real container without rotating the operator token')
+    token = superuser_token(base, env['PEOPLECONTEXT_SUPERUSER_EMAIL'], env['PEOPLECONTEXT_SUPERUSER_PASSWORD'])
+    status, _, state = http('GET', base + '/api/context/maintenance', token=token)
+    check(status == 200 and state['state'] == 'writable', 'maintenance starts writable')
+    status, _, frozen = http('PUT', base + '/api/context/maintenance',
+                             {'readOnly': True, 'expectedGeneration': state['generation']}, token=token)
+    check(status == 200 and frozen['state'] == 'read_only', 'container enters drained read-only mode')
+    stop(name)
+    docker('start', name)
+    base = wait_up(name)
+    status, _, state = http('GET', base + '/api/context/maintenance', token=token)
+    check(status == 200 and state['state'] == 'read_only' and state['generation'] == frozen['generation'],
+          'frozen container restart preserves the operator token and maintenance generation')
+    status, _, _ = http('POST', base + '/api/collections/agents/records', {}, token=token)
+    check(status == 503, 'frozen container rejects mutations')
+    status, _, state = http('PUT', base + '/api/context/maintenance',
+                            {'readOnly': False, 'expectedGeneration': frozen['generation']}, token=token)
+    check(status == 200 and state['state'] == 'writable', 'operator explicitly thaws the restarted container')
     stop(name)
 
 
@@ -430,6 +448,7 @@ def restore(image, tmp, run_id):
     late = json.loads(client.run('create', 'employees', json.dumps({'name': 'Written before stop'})))['id']
     stop(second)
     text = check_logs(second)
+    check('waiting for initial database and replica synchronization' in text, 'replica readiness is required before serving')
     check('litestream shut down' in text, 'Litestream received the signal and shut down after the server')
     destroy(second, second)
 

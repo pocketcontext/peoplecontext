@@ -251,3 +251,32 @@ Install uv, then run `uv venv` and `uv pip install -e .`. Activate `.venv` befor
 The implementation and bundled schema live in `src/peoplecontext_client/`; keep its schema snapshot identical to `skills/peoplecontext/references/schema.json`. Publish and test the package commit before updating the launcher to that commit. The ObserveContext dependency is pinned separately. Tracing is inactive unless explicitly enabled by `observecontext capture -- peoplecontext ...`; capture failures must preserve the command result.
 
 For a released launcher, run `python3 tests/skill.py --binary /absolute/path/to/pinned/pocketcontext --client /absolute/path/to/copied/peoplecontext`. This uses a fresh uv cache and isolated synthetic records. Put the real uv binary on `PATH` when a version-manager shim depends on `HOME`; authentication tests deliberately use temporary home directories. Source/schema mutation checks use a private package copy.
+
+## Read-only migration maintenance
+
+A superuser can inspect `GET /api/context/maintenance` and freeze writes with
+`PUT /api/context/maintenance` and `{"readOnly":true,"expectedGeneration":N}`,
+using the returned generation. Wait for `state: "read_only"` before taking the
+final migration snapshot. Existing writes drain; new mutations return HTTP 503.
+Authorized reads, SQL queries, and original-file downloads remain available;
+login flows requiring writes can fail. Public submissions are rejected, not queued.
+
+The private `pb_data/maintenance.json` marker persists the freeze across restarts.
+Frozen startup preserves stored settings and credentials, skips replica restore
+and superuser provisioning, and fails for malformed markers, missing databases
+or pending migrations. Preserve the marker alongside the database when migrating.
+Thaw explicitly with `readOnly:false` and the current generation; stale generations
+return HTTP 409. Freeze does not fence external processes or another host: pause CD
+and disable source restart/deployment authority before activating a replacement.
+
+Validate using synthetic temporary data:
+
+```sh
+python3 tests/maintenance.py --binary /absolute/path/to/pinned/pocketcontext
+python3 tests/maintenance_entrypoint.py
+```
+
+Replicated startup waits for Litestream’s private IPC synchronization before serving.
+A fresh writable instance initializes its database first; a frozen instance still
+requires its existing database. Failed synchronization stops startup. This ensures
+Litestream initializes before a quick clean shutdown; replication remains asynchronous.
