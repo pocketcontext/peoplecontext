@@ -197,7 +197,9 @@ The skill reads through filtered SQL and writes only ordinary HR collections thr
 
 ## Production container and deployment
 
-The image `ghcr.io/pocketcontext/peoplecontext:latest` serves port 80 and `/up`, persists under `/storage`, and uses Litestream. The local `../once-pocketcontext/colors.yml` declares `people.pocketcontext.com` with one CPU and 512 MiB. The production replica is dedicated bucket `peoplecontext-backup`, prefix `once-pocketcontext/peoplecontext`, in the existing EU R2 account. No real employee records are seeded.
+The image serves port 80 and `/up`, persists under `/storage`, and requires
+separate primary S3 and Litestream storage. The old deployment and its backup
+bucket have been retired; no production service is enabled by this source change.
 
 | Variables | Purpose |
 | --- | --- |
@@ -207,17 +209,16 @@ The image `ghcr.io/pocketcontext/peoplecontext:latest` serves port 80 and `/up`,
 | `PEOPLECONTEXT_TRUSTED_PROXY_HEADER` | Trusted proxy header; production uses `X-Forwarded-For`. |
 | `PEOPLECONTEXT_RATE_LIMITS` | Image default `true`; `false` disables API rate limits. |
 | `BASE_URL` | ONCE-injected public origin and allowed browser origin. |
-| `PEOPLECONTEXT_S3_BUCKET`, `PEOPLECONTEXT_S3_ENDPOINT`, `PEOPLECONTEXT_S3_REGION`, `PEOPLECONTEXT_S3_ACCESS_KEY_ID`, `PEOPLECONTEXT_S3_SECRET_ACCESS_KEY` | Optional complete primary file storage configuration; dedicated private bucket and credentials separate from replicas. Does not migrate existing files. |
+| `PEOPLECONTEXT_S3_BUCKET`, `PEOPLECONTEXT_S3_ENDPOINT`, `PEOPLECONTEXT_S3_REGION`, `PEOPLECONTEXT_S3_ACCESS_KEY_ID`, `PEOPLECONTEXT_S3_SECRET_ACCESS_KEY` | Required complete primary file storage configuration; dedicated private bucket and credentials separate from replicas. Does not migrate existing files. |
 | `PEOPLECONTEXT_S3_FORCE_PATH_STYLE` | Optional `true` (default) or `false`; requires complete primary storage configuration. |
 | `LITESTREAM_BUCKET`, `LITESTREAM_PATH`, `LITESTREAM_ACCESS_KEY_ID`, `LITESTREAM_SECRET_ACCESS_KEY` | Required replica settings. |
 | `LITESTREAM_ENDPOINT`, `LITESTREAM_REGION`, `LITESTREAM_SYNC_INTERVAL` | R2 endpoint, region, and sync interval (default 10s). |
-| `LITESTREAM_DISABLED` | Exactly `true` disables replication for isolated development. |
+| `LITESTREAM_DISABLED` | Unsupported; container replication is mandatory. |
 
 ONCE-provided SMTP settings are adopted on startup. Replica credentials and the operator password are removed from the server child's environment. Credentials are stored privately in scaffold configuration, ONCE labels, and database/replica settings; never print complete labels or environments.
 
-ONCE v0.3.3 can overlap database writers during ordinary updates. Keep automatic updates disabled. Install `deploy/install.py` as root after provisioning the application's dedicated deployment SSH key. The fixed wrapper locks, pulls, gracefully stops the exact container, then updates only PeopleContext. Preserve sibling keys and applications. Do not run restored replicas beside active writers. Account-access migration rollback requires a deliberate backup restore.
-
-CI builds both architectures only after application and container smoke/restore checks. Configure the `once-pocketcontext` GitHub environment with its dedicated SSH key and pinned host identity, and set `COLORS_PROFILE` only after the safe wrapper is installed and the initial service is live.
+See [CI and deployment](docs/ci-and-deployment.md) for guarded future deployment.
+Legacy deployment installers are retired. Keep one database and replica writer.
 
 Additional checks:
 
@@ -349,3 +350,13 @@ existing `COLORS_PROFILE`; clearing it is not the pause mechanism. Resume only
 when a deployment is intended by setting `CONTEXT_DEPLOY_PAUSED=false` (or deleting
 that variable). The pause applies to newly evaluated jobs; separately finish or
 cancel any deployment already running before treating the host as fenced.
+
+## Strict container runtime
+
+The container now requires separate primary S3 and Litestream storage and explicit
+fresh-install initialization. See [container runtime](docs/container-runtime.md)
+for startup, staged verified recovery, maintenance and validation requirements.
+Local direct-server development may still use local storage. The old deployment
+is retired; fresh deployment is outside this change.
+
+See [CI and deployment](docs/ci-and-deployment.md) for common release controls.

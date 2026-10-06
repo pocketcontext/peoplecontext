@@ -116,6 +116,7 @@ def main():
                 'LITESTREAM_ACCESS_KEY_ID': keys['replica'][0], 'LITESTREAM_SECRET_ACCESS_KEY': keys['replica'][1],
                 'LITESTREAM_SYNC_INTERVAL': '1h'})
             first, second = run + '-a', run + '-b'
+            s.initialize(args.image, first, env, run)
             s.run_app(args.image, first, first, env, run); base = s.wait_up(first)
             admin = s.superuser_token(base, env[prefix + '_SUPERUSER_EMAIL'], env[prefix + '_SUPERUSER_PASSWORD'])
             def api(method, path, body=None, token=admin):
@@ -197,6 +198,24 @@ def main():
             s.stop(second)
             s.check_logs(second)
             s.docker('rm', second); s.docker('volume', 'rm', second); s.volumes.remove(second)
+            # A missing referenced object must fail before the staged database
+            # is installed, and a retry must still refuse the incomplete replica.
+            missing_key = key
+            s.docker('exec', '-e', 'MC_HOST_test', minio, 'mc', 'mv',
+                     'test/files/' + missing_key, 'test/files/held-original', env=mc)
+            rejected = run + '-missing-file'
+            s.docker('volume', 'create', rejected)
+            s.volumes.append(rejected)
+            attempt = ['run', '--rm', '--run', run, '-v', rejected + ':/storage']
+            for keyname in env:
+                attempt += ['-e', keyname]
+            for _ in range(2):
+                status, output = s.docker(*attempt, args.image, env=env, ok=False)
+                s.check(status != 0 and 'starting server' not in output, 'missing file refuses startup on repeated recovery')
+                s.docker('run', '--rm', '-v', rejected + ':/storage', '--entrypoint', 'sh', args.image,
+                         '-c', 'test ! -e /storage/pb_data/data.db')
+            s.docker('exec', '-e', 'MC_HOST_test', minio, 'mc', 'mv',
+                     'test/files/held-original', 'test/files/' + missing_key, env=mc)
             # Writable disaster recovery has no migration bundle. The ordinary
             # entrypoint must restore data.db and initialize auxiliary state.
             third = run + '-c'
@@ -205,7 +224,7 @@ def main():
             api('GET', '/api/collections/synthetic_storage/records/' + late['id'], token=users[0][1])
             recovered_admin = s.superuser_token(base, env[prefix + '_SUPERUSER_EMAIL'], env[prefix + '_SUPERUSER_PASSWORD'])
             assert api('GET', '/api/context/maintenance', token=recovered_admin)['state'] == 'writable'
-            assert 'post-restore integrity check passed' in s.logs(third)
+            assert 'database restored and referenced remote files readable' in s.logs(third)
             s.docker('exec', third, 'test', '-f', '/storage/pb_data/auxiliary.db')
             s.stop(third)
             s.check_logs(third)
