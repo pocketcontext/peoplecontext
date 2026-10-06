@@ -81,3 +81,4 @@ jobs:
         run: |
           python3 peoplecontext/tests/maintenance_entrypoint.py
           python3 peoplecontext/tests/maintenance.py --binary pocketcontext/bin/pocketcontext
+          python3 peoplecontext/tests/object_storage.py --binary pocketcontext/bin/pocketcontext

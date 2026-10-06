@@ -207,6 +207,8 @@ The image `ghcr.io/pocketcontext/peoplecontext:latest` serves port 80 and `/up`,
 | `PEOPLECONTEXT_TRUSTED_PROXY_HEADER` | Trusted proxy header; production uses `X-Forwarded-For`. |
 | `PEOPLECONTEXT_RATE_LIMITS` | Image default `true`; `false` disables API rate limits. |
 | `BASE_URL` | ONCE-injected public origin and allowed browser origin. |
+| `PEOPLECONTEXT_S3_BUCKET`, `PEOPLECONTEXT_S3_ENDPOINT`, `PEOPLECONTEXT_S3_REGION`, `PEOPLECONTEXT_S3_ACCESS_KEY_ID`, `PEOPLECONTEXT_S3_SECRET_ACCESS_KEY` | Optional complete primary file storage configuration; dedicated private bucket and credentials separate from replicas. Does not migrate existing files. |
+| `PEOPLECONTEXT_S3_FORCE_PATH_STYLE` | Optional `true` (default) or `false`; requires complete primary storage configuration. |
 | `LITESTREAM_BUCKET`, `LITESTREAM_PATH`, `LITESTREAM_ACCESS_KEY_ID`, `LITESTREAM_SECRET_ACCESS_KEY` | Required replica settings. |
 | `LITESTREAM_ENDPOINT`, `LITESTREAM_REGION`, `LITESTREAM_SYNC_INTERVAL` | R2 endpoint, region, and sync interval (default 10s). |
 | `LITESTREAM_DISABLED` | Exactly `true` disables replication for isolated development. |
@@ -280,3 +282,61 @@ Replicated startup waits for Litestream’s private IPC synchronization before s
 A fresh writable instance initializes its database first; a frozen instance still
 requires its existing database. Failed synchronization stops startup. This ensures
 Litestream initializes before a quick clean shutdown; replication remains asynchronous.
+
+## Primary object storage preparation
+
+Set all of `PEOPLECONTEXT_S3_BUCKET`, `PEOPLECONTEXT_S3_ENDPOINT`,
+`PEOPLECONTEXT_S3_REGION`, `PEOPLECONTEXT_S3_ACCESS_KEY_ID` and
+`PEOPLECONTEXT_S3_SECRET_ACCESS_KEY` to enable PocketBase primary file storage.
+Optional `PEOPLECONTEXT_S3_FORCE_PATH_STYLE` defaults to `true` and accepts only
+`true` or `false`. Partial configuration stops startup without exposing values.
+An existing remote backend requires explicit matching configuration; removing
+variables never silently reverts to local disk. Frozen startup requires the stored
+backend and credentials to match exactly and does not write settings.
+
+Use a dedicated private file bucket and bucket-scoped credentials separate from
+`LITESTREAM_*`. Uploads and downloads continue through PocketBase; each file's
+existing authorization still applies. These settings do not copy existing local
+files, change record permissions or introduce new file fields. Copy and reconcile
+all existing file keys and checksums before enabling remote storage on existing
+data. Keep object retention at least as long as database recovery history; do not
+clean objects based on a potentially stale database restore.
+
+SQLite recovery retains the existing Litestream restore and initial-sync startup
+contract. File storage and SQLite have no shared transaction, and unexpected host
+loss can lose database commits not yet replicated. Keep one writer and replica
+publisher per replica path; preserve the source volume through verified recovery.
+With no S3 configuration and no stored remote backend, local storage is unchanged.
+No deployed application is switched by this preparation.
+
+Validate startup configuration using synthetic isolated databases:
+
+```sh
+python3 tests/object_storage.py --binary /absolute/path/to/pinned/pocketcontext
+```
+
+The image release gate exercises actual protected uploads, owner/outsider/anonymous
+file access, and exact Litestream recovery against isolated MinIO buckets with
+separate bucket-scoped credentials:
+
+```sh
+python3 docker/object_storage_smoke.py --image peoplecontext:ci --minio-image peoplecontext-minio-fixture:9e49d5e-7394ce0
+```
+
+Build the fixture using `docker/minio.Dockerfile`, or run the ordinary container
+restore gate first. The S3 gate uses a one-hour replication interval, freezes and
+cleanly stops the source, restores into a separate volume, and compares the full
+logical database before removing the source volume. The recovered container must
+remain frozen, preserve protected-file access and reject writes until explicit thaw.
+A third stage commits a final record after thaw, cleanly stops and destroys the
+second volume, then verifies automatic entrypoint recovery on an empty volume
+without an auxiliary snapshot or maintenance marker. The record, protected object
+and authorization must survive, and the server initializes new auxiliary state.
+
+For a planned frozen migration, the bundle must include `maintenance.json` and a
+consistent `auxiliary.db` snapshot made with SQLite's backup API from the stopped
+source, including any WAL state. Litestream restores `data.db`; it does not replicate
+PocketBase's auxiliary database or the maintenance marker. Frozen startup refuses
+to create the missing auxiliary database. Preserve both bundle files privately
+alongside the verified primary restore. This differs from writable disaster recovery,
+where a fresh startup can create auxiliary state. These tests do not migrate live files.
