@@ -17,7 +17,7 @@ The launcher requires uv and Python 3.11 or later; its first run installs the pi
 
 Run `"/absolute/path/to/peoplecontext/peoplecontext" login --google`. Open the printed URL in the user's browser. For an SSH session, first forward `8765:127.0.0.1:8765` from the browser's machine. Callback URI: `http://127.0.0.1:8765/callback`. Keep the URL private. Workspace JIT creates an account; a verified matching employee work email can establish the employee link. A disabled account needs operator help, not a new identity.
 
-The client privately caches the PocketBase token under `$XDG_CACHE_HOME/peoplecontext/` or `~/.cache/peoplecontext/`. Tokens last seven days and renew during use; `whoami` requests renewal. Expired/revoked Google sessions require browser login. `logout` removes only the local cache. No Google secret belongs in the client environment. Password login remains supported for provisioned accounts.
+The client privately saves the PocketBase session under `$XDG_STATE_HOME/peoplecontext/` (default `~/.local/state/peoplecontext/`), or in `PEOPLECONTEXT_SESSION_DIR` when set, so clearing `~/.cache` does not sign you out; a session left in `~/.cache/peoplecontext/` by an older client is moved there on first use. Tokens last seven days and renew during use; `whoami` requests renewal. Expired/revoked Google sessions require browser login. `logout` removes only the local session, from both locations. No Google secret belongs in the client environment. Password login remains supported for provisioned accounts.
 
 ## Read and write
 

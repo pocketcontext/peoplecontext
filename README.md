@@ -191,7 +191,7 @@ On the SSH host, replace `/absolute/path/to/peoplecontext` with the installed sk
 "/absolute/path/to/peoplecontext/peoplecontext" check
 ```
 
-Open the printed Google URL on your laptop. The private PocketBase token cache is under `$XDG_CACHE_HOME/peoplecontext/` or `~/.cache/peoplecontext/` with mode 0600. Active Google sessions renew after five minutes or near expiry; `whoami` always refreshes. Tokens expire seven days after issuance/refresh, with no absolute renewal limit or background refresh. Expired/revoked tokens require another browser login. `logout` only removes the local copy. Provisioned password accounts may use `PEOPLECONTEXT_AGENT_PASSWORD`.
+Open the printed Google URL on your laptop. The private PocketBase session file is saved with mode 0600 under `$XDG_STATE_HOME/peoplecontext/` (default `~/.local/state/peoplecontext/`), or in `PEOPLECONTEXT_SESSION_DIR` when set, so clearing `~/.cache` does not sign you out; a session left in `~/.cache/peoplecontext/` by an older client is moved there on first use. Active Google sessions renew after five minutes or near expiry; `whoami` always refreshes. Tokens expire seven days after issuance/refresh, with no absolute renewal limit or background refresh. Expired/revoked tokens require another browser login. `logout` only removes the local copies, new and old. Provisioned password accounts may use `PEOPLECONTEXT_AGENT_PASSWORD`.
 
 The skill reads through filtered SQL and writes only ordinary HR collections through REST. It never uses operator credentials or exposes authority tables. It has no delete command and no issue-style revision checks.
 

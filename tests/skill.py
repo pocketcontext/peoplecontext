@@ -30,7 +30,8 @@ def main():
                 (ROOT/'skills/peoplecontext/references/schema.json').write_text(json.dumps({'tables': schema['tables']}, indent=2)+'\n')
                 (ROOT/'src/peoplecontext_client/schema.json').write_text((ROOT/'skills/peoplecontext/references/schema.json').read_text())
             shutil.copytree(ROOT/'skills/peoplecontext', root/'installed')
-            env = {**os.environ, 'UV_PYTHON': sys.executable, 'UV_CACHE_DIR': str(root/'uv-cache'), 'PEOPLECONTEXT_URL': s.base, 'PEOPLECONTEXT_AGENT_EMAIL': 'hr@example.test', 'PEOPLECONTEXT_AGENT_PASSWORD': password, 'XDG_CACHE_HOME': str(root/'cache')}
+            env = {**os.environ, 'UV_PYTHON': sys.executable, 'UV_CACHE_DIR': str(root/'uv-cache'), 'PEOPLECONTEXT_URL': s.base, 'PEOPLECONTEXT_AGENT_EMAIL': 'hr@example.test', 'PEOPLECONTEXT_AGENT_PASSWORD': password, 'XDG_CACHE_HOME': str(root/'cache'), 'XDG_STATE_HOME': str(root/'state')}
+            env.pop('PEOPLECONTEXT_SESSION_DIR', None)
             def cli(*command, code=0):
                 executable = [str(Path(args.client).resolve())] if args.client else [sys.executable, str(root/'installed/peoplecontext')]
                 r = subprocess.run([*executable, *command], env=env, capture_output=True, text=True)
@@ -50,15 +51,16 @@ def main():
             cli('update', 'employees', employee['id'], '{"work_email":"new@example.test"}', code=2)
             cli('batch', '[{"method":"POST","url":"/api/collections/employees/records","body":{"name":"Forbidden identity", "work_email":"new@example.test"}}]', code=2)
             cli('batch', '[{"method":"POST","url":"/api/collections/account_links/records","body":{}}]', code=2)
-            cache = next((root/'cache/peoplecontext').glob('*.json'))
-            assert cache.stat().st_mode & 0o777 == 0o600
+            session = next((root/'state/peoplecontext').glob('*.json'))
+            assert session.stat().st_mode & 0o777 == 0o600
+            assert not (root/'cache/peoplecontext').exists()
             env['PEOPLECONTEXT_AGENT_EMAIL'] = 'reader@example.test'
             assert json.loads(cli('sql', 'SELECT * FROM compensation'))['rows'] == []
             cli('create', 'employees', '{"name":"Forbidden"}', code=1)
             cli('sql', 'SELECT * FROM account_links', code=1)
             cli('get', 'compensation', salary['id'], code=1)
             cli('logout')
-            print('PASS: portable HR client, private token cache, filtered reads, HR writes, authority-write rejection')
+            print('PASS: portable HR client, private session file, filtered reads, HR writes, authority-write rejection')
         finally:
             s.stop(); s.log.close()
 
