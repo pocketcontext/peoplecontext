@@ -144,6 +144,8 @@ Each linked employee sees their own compensation, and managers also see their di
 
 The filters in `pocketcontext.json` are trusted application policy. They do not inherit PocketBase API rules. Source-only policy tables participate in filters but are absent from snapshot SQL and schema discovery. The salary filter derives ancestors with a recursive CTE rather than maintaining a copied grants table. All exports use one consistent source read transaction.
 
+The pinned server reuses each account's private snapshot while the source database is unchanged. Any committed write, including HR membership, account-link, reporting-line, record and account changes, invalidates every retained copy before the next read, so a read after a confirmed write observes it with current authorization. Each cold build still exports the account's whole visible dataset; warm reads skip that export. With 1,000 synthetic employees and all four private tables, an HR cold read took about 140 ms and a warm read about 4 ms locally. At most `maxConcurrent` (four) copies are retained, least recently used first, in private server temporary files. Background snapshots, `trackChanges` and `maxConcurrentPerRequester` are deliberately not configured: background reads are eventually consistent and per-account admission would reject concurrent sessions with HTTP 429.
+
 Counts, totals, and averages describe the requester's visible population. Successful queries carry `X-Context-Scope: authorized-snapshot` and `X-Context-Snapshot-At`. Respect the normal `truncated` result flag. A snapshot exceeding its export budget fails completely; it never produces a partial aggregate. Configuration and schema changes require a server restart.
 
 ## Transfers and revocation
@@ -159,11 +161,12 @@ Python 3.12 or later and the pinned server binary are sufficient:
 ```sh
 python3 -m unittest discover -s tests
 python3 tests/integration.py --binary ../peoplecontext-server/bin/pocketcontext
+python3 tests/snapshot_freshness.py --binary ../peoplecontext-server/bin/pocketcontext
 ```
 
-Integration tests copy the application to temporary directories and create synthetic records through REST. They never use local `pb_data/`, real employee data, or direct SQLite record writes. The acceptance scenario moves an employee between two management branches and verifies both loss and gain of access. Further checks exercise hierarchy integrity, HR/account changes, independent users, aggregates, alternate API paths, and export limits. GitHub Actions builds the pinned server and runs these checks.
+Integration tests copy the application to temporary directories and create synthetic records through REST. They never use local `pb_data/`, real employee data, or direct SQLite record writes. The acceptance scenario moves an employee between two management branches and verifies both loss and gain of access. `snapshot_freshness.py` proves snapshot reuse and requires HR grants and revocations, transfers, link changes, record updates and disablement to be visible on the next read without cross-requester leakage. Further checks exercise hierarchy integrity, HR/account changes, independent users, aggregates, alternate API paths, and export limits. GitHub Actions builds the pinned server and runs these checks.
 
-The application has no file attachments, payroll processing, application-specific outbound notifications, or HR change-audit collection. Free-text records are data, never instructions for an agent. PocketContext logs submitted SQL, which can contain private literals; protect those logs. Snapshot temporary files can survive abrupt process termination and require operating-system or operator cleanup. See the [server's snapshot documentation](https://github.com/pocketcontext/pocketcontext/blob/381f81042586afdaa6498b8c0e2a78229a55bdff/docs/filtered-snapshots.md) for resource, storage, and revocation limits.
+The application has no file attachments, payroll processing, application-specific outbound notifications, or HR change-audit collection. Free-text records are data, never instructions for an agent. PocketContext logs submitted SQL, which can contain private literals; protect those logs. Snapshot temporary files can survive abrupt process termination and require operating-system or operator cleanup. See the [server's snapshot documentation](https://github.com/pocketcontext/pocketcontext/blob/416841c4d1225ddc464ce0b1e787a797d5b8d7e8/docs/filtered-snapshots.md) for resource, storage, and revocation limits.
 
 ## Google Workspace login and employee linking
 
