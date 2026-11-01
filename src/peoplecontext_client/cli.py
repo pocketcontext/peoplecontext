@@ -64,18 +64,27 @@ def dump(data, pretty=False):
 
 
 def config(names=ENV[:2], args=None):
-    saved = read_default()
-    url = getattr(args, 'url', None) or os.environ.get(ENV[0]) or saved.get('url')
-    email = getattr(args, 'email', None) or os.environ.get(ENV[1]) or saved.get('email')
+    url = getattr(args, 'url', None) or os.environ.get(ENV[0])
+    email = getattr(args, 'email', None) or os.environ.get(ENV[1])
+    if not url or not email:
+        saved = read_default()
+        url = url or saved.get('url')
+        email = email or saved.get('email')
     if not url or not email:
         raise Fail(2, 'Provide --url and --email for login, set the application environment variables, or sign in to save defaults.')
     url = url.rstrip('/')
-    parsed = urllib.parse.urlsplit(url)
+    if any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in url):
+        raise Fail(2, 'Server URL must not contain whitespace or control characters')
+    try:
+        parsed = urllib.parse.urlsplit(url)
+        parsed.port
+    except ValueError:
+        raise Fail(2, 'Server URL has an invalid host or port') from None
     if parsed.scheme not in ('http', 'https') or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise Fail(2, 'Server URL must be an HTTP(S) URL without credentials, query, or fragment')
     if parsed.scheme == 'http' and parsed.hostname not in ('localhost', '127.0.0.1', '::1'):
         raise Fail(2, 'Use HTTPS for a remote server')
-    if not isinstance(email, str) or not email.strip() or any(c.isspace() for c in email):
+    if not isinstance(email, str) or '@' not in email or any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in email):
         raise Fail(2, 'Email must be a nonempty account email without whitespace')
     return {'url': url, 'email': email, 'password': hide(os.environ.get(ENV[2]))}
 

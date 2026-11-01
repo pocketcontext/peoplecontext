@@ -39,8 +39,13 @@ def main():
                 assert password not in r.stdout+r.stderr
                 assert 'eyJ' not in r.stdout+r.stderr
                 return r.stdout
+            env.pop('PEOPLECONTEXT_URL')
+            env.pop('PEOPLECONTEXT_AGENT_EMAIL')
+            cli('login', '--password', '--url', s.base, '--email', 'hr@example.test')
+            env.pop('PEOPLECONTEXT_AGENT_PASSWORD')
             assert json.loads(cli('whoami'))['id'] == account['id']
             cli('check')
+            env['PEOPLECONTEXT_AGENT_PASSWORD'] = password
             employee = json.loads(cli('create', 'employees', '{"name":"Synthetic worker"}'))
             salary = json.loads(cli('create', 'compensation', json.dumps({'employee': employee['id'], 'annual_salary_minor': 5500000, 'currency': 'EUR', 'effective_date': '2026-01-01 00:00:00.000Z'})))
             cli('update', 'employees', employee['id'], '{"department":"Test"}')

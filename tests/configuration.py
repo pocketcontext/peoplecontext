@@ -125,6 +125,19 @@ class ConfigurationTest(unittest.TestCase):
                 cli.run(cli.parse(['login','--google','--url','http://remote.example.test','--email',self.cfg['email']]))
             login.assert_not_called()
 
+    def test_explicit_login_repairs_invalid_defaults(self):
+        self.login()
+        cli.default_file().write_text('{')
+        self.login()
+        self.assertEqual(cli.config(), self.cfg)
+
+    def test_malformed_url_and_email_fail_before_network(self):
+        for url in ['https://app.example.test/\npath', 'https://app.example.test:bad', 'https://app.example.test:99999', 'https://[broken']:
+            with self.subTest(url=url), self.assertRaises(cli.Fail):
+                cli.config(args=cli.parse(['whoami','--url',url,'--email',self.cfg['email']]))
+        with self.assertRaises(cli.Fail):
+            cli.config(args=cli.parse(['whoami','--url',self.cfg['url'],'--email','not-an-email']))
+
     def test_session_directory_override(self):
         with patch.dict(os.environ, {'PEOPLECONTEXT_SESSION_DIR': str(Path(self.tmp.name)/'override')}):
             self.login()
