@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Command-line client for a PeopleContext HR server. Packaged Python CLI.
 
-Configuration comes from three environment variables:
+URL and email resolve from CLI options, environment variables, then saved defaults:
   PEOPLECONTEXT_URL             server address, for example https://people.example.com
   PEOPLECONTEXT_AGENT_EMAIL     email of an account in the `agents` collection
   PEOPLECONTEXT_AGENT_PASSWORD  password of that account (optional with Google login)
@@ -21,6 +21,7 @@ from importlib.resources import files
 from observecontext_client.instrumentation import instrument_cli
 import re
 import secrets
+import stat
 import sys
 import tempfile
 import time
@@ -62,38 +63,85 @@ def dump(data, pretty=False):
     return json.dumps(data, separators=(',', ':'), ensure_ascii=False)
 
 
-def config(names=ENV[:2]):
-    missing = [name for name in names if not os.environ.get(name)]
-    if missing:
-        raise Fail(2, 'missing environment variable: ' + ', '.join(missing) + '. Ask the user to set every missing variable; do not look for credentials elsewhere.')
-    url = os.environ[ENV[0]].rstrip('/')
+def config(names=ENV[:2], args=None):
+    saved = read_default()
+    url = getattr(args, 'url', None) or os.environ.get(ENV[0]) or saved.get('url')
+    email = getattr(args, 'email', None) or os.environ.get(ENV[1]) or saved.get('email')
+    if not url or not email:
+        raise Fail(2, 'Provide --url and --email for login, set the application environment variables, or sign in to save defaults.')
+    url = url.rstrip('/')
     parsed = urllib.parse.urlsplit(url)
     if parsed.scheme not in ('http', 'https') or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
-        raise Fail(2, 'PEOPLECONTEXT_URL must be an HTTP(S) URL without credentials, query, or fragment')
+        raise Fail(2, 'Server URL must be an HTTP(S) URL without credentials, query, or fragment')
     if parsed.scheme == 'http' and parsed.hostname not in ('localhost', '127.0.0.1', '::1'):
-        raise Fail(2, 'Use HTTPS for a remote PeopleContext server')
-    return {'url': url, 'email': os.environ[ENV[1]], 'password': hide(os.environ.get(ENV[2]))}
+        raise Fail(2, 'Use HTTPS for a remote server')
+    if not isinstance(email, str) or not email.strip() or any(c.isspace() for c in email):
+        raise Fail(2, 'Email must be a nonempty account email without whitespace')
+    return {'url': url, 'email': email, 'password': hide(os.environ.get(ENV[2]))}
 
-
-# Session file: one per server URL and email, readable only by the current user. It lives in
-# the XDG state folder, not the cache, so clearing ~/.cache does not sign the user out (ENG-55).
 
 def session_name(cfg):
     return hashlib.sha256((cfg['url'] + '\n' + cfg['email']).encode()).hexdigest()[:32] + '.json'
 
 
-def session_file(cfg):
+def session_directory():
     folder = os.environ.get('PEOPLECONTEXT_SESSION_DIR')
     if not folder:
         state = os.environ.get('XDG_STATE_HOME') or str(Path.home() / '.local' / 'state')
         folder = str(Path(state) / 'peoplecontext')
-    return Path(folder) / session_name(cfg)
+    return Path(folder)
 
 
-def legacy_session_file(cfg):
-    """Where clients before ENG-55 kept the session; read once and moved."""
-    base = os.environ.get('XDG_CACHE_HOME') or str(Path.home() / '.cache')
-    return Path(base) / 'peoplecontext' / session_name(cfg)
+def session_file(cfg):
+    return session_directory() / session_name(cfg)
+
+
+def default_file():
+    return session_directory() / 'default.json'
+
+
+def read_default():
+    path = default_file()
+    try:
+        info = path.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o600:
+            raise Fail(2, 'Unsafe default.json; use a private regular file with mode 0600.')
+        parent = path.parent.lstat()
+        if not stat.S_ISDIR(parent.st_mode) or parent.st_uid != os.getuid() or stat.S_IMODE(parent.st_mode) != 0o700:
+            raise Fail(2, 'Unsafe session directory; use a private directory with mode 0700.')
+        data = json.loads(path.read_text())
+        if not isinstance(data, dict) or set(data) != {'url', 'email'} or not all(isinstance(data[k], str) and data[k] for k in ('url', 'email')):
+            raise ValueError()
+        return data
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError, TypeError):
+        raise Fail(2, 'Cannot read default.json; fix or remove it and sign in again.') from None
+
+
+def save_default(cfg):
+    path = default_file()
+    temporary = None
+    try:
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        info = path.parent.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o700:
+            raise OSError('Unsafe session directory')
+        with tempfile.NamedTemporaryFile(mode='w', dir=path.parent, prefix='.default-', delete=False) as handle:
+            temporary = Path(handle.name)
+            os.fchmod(handle.fileno(), 0o600)
+            json.dump({'url': cfg['url'], 'email': cfg['email']}, handle)
+        os.replace(temporary, path)
+    except OSError:
+        raise Fail(1, 'Login succeeded but default settings could not be saved.') from None
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def forget_default(cfg):
+    if read_default() == {'url': cfg['url'], 'email': cfg['email']}:
+        default_file().unlink(missing_ok=True)
 
 
 def read_session(cfg, path):
@@ -107,21 +155,16 @@ def read_session(cfg, path):
 
 
 def load_session(cfg):
-    path = session_file(cfg)
-    if path.exists():
-        return read_session(cfg, path)
-    legacy = legacy_session_file(cfg)
-    session = read_session(cfg, legacy)
-    if session is not None and save_session(cfg, session):
-        legacy.unlink(missing_ok=True)
-    return session
+    return read_session(cfg, session_file(cfg))
 
 
 def save_session(cfg, session):
     path = session_file(cfg)
     try:
         path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        os.chmod(path.parent, 0o700)
+        info = path.parent.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o700:
+            raise OSError('Unsafe session directory')
         with tempfile.NamedTemporaryFile(mode='w', dir=path.parent, prefix='.session-', delete=False) as handle:
             temporary = Path(handle.name)
             os.fchmod(handle.fileno(), 0o600)
@@ -439,18 +482,22 @@ def run(args):
         print(''.join(secrets.choice(ID_ALPHABET) for _ in range(15)))
         return 0
     if args.command == 'logout':
-        cfg = config(ENV[:2])
+        cfg = config(args=args)
         path = session_file(cfg)
         path.unlink(missing_ok=True)
         say(f'removed {path}', sys.stdout)
-        legacy = legacy_session_file(cfg)
-        if legacy.exists():
-            legacy.unlink(missing_ok=True)
-            say(f'removed {legacy}', sys.stdout)
+        if getattr(args, 'forget', False):
+            forget_default(cfg)
         return 0
-    cfg = config()
+    cfg = config(args=args)
     if args.command == 'login':
-        google_login(cfg, args.port, args.timeout)
+        if args.google:
+            session = google_login(cfg, args.port, args.timeout)
+        else:
+            session = login(cfg)
+        if not save_session(cfg, session):
+            raise Fail(1, 'Login succeeded but the session could not be saved.')
+        save_default(cfg)
         say(f'Signed in as {cfg["email"]} at {cfg["url"]}', sys.stdout)
         return 0
     # Reject malformed writes before authentication or any network request.
@@ -514,6 +561,8 @@ def run(args):
 
 def parse(argv):
     pretty = argparse.ArgumentParser(add_help=False)
+    pretty.add_argument('--url', default=argparse.SUPPRESS, help='server URL; overrides environment and saved defaults')
+    pretty.add_argument('--email', default=argparse.SUPPRESS, help='account email; overrides environment and saved defaults')
     pretty.add_argument('--pretty', action='store_true', default=argparse.SUPPRESS, help='indent the JSON output')
     parser = argparse.ArgumentParser(prog='peoplecontext', parents=[pretty], description='PeopleContext HR client. Reads with SQL, writes through the records API. Account and policy provisioning require an operator; this client has no delete command.',
                                      epilog='Environment: ' + ', '.join(ENV) + '. JSON arguments may be "-" to read standard input. Exit codes: 0 ok, 1 HTTP or transport error, 2 usage or configuration, 3 check found differences, 4 HTTP 409.')
@@ -522,8 +571,10 @@ def parse(argv):
         command = commands.add_parser(name, parents=[pretty], help=text, description=text)
         for argument, argument_help in arguments:
             command.add_argument(argument, help=argument_help)
-    oauth_login = commands.add_parser('login', help='sign in with Google using a browser and a loopback callback')
-    oauth_login.add_argument('--google', action='store_true', required=True)
+    oauth_login = commands.add_parser('login', parents=[pretty], help='sign in and save default server/account settings')
+    modes = oauth_login.add_mutually_exclusive_group(required=True)
+    modes.add_argument('--google', action='store_true')
+    modes.add_argument('--password', action='store_true', help='use the application password environment variable')
     oauth_login.add_argument('--port', type=int, default=8765, help='loopback callback port; register the matching redirect URI')
     oauth_login.add_argument('--timeout', type=int, default=180, help='seconds to wait for the browser (1–600)')
     add('whoami', 'print the account id, name, and server URL')
@@ -537,6 +588,7 @@ def parse(argv):
     add('batch', 'send up to 20 writes as one transaction', ('json', 'JSON array of {"method","url","body"}, or -'))
     add('newid', 'print a new 15-character record id for use inside a batch')
     add('logout', 'remove the saved session')
+    commands.choices['logout'].add_argument('--forget', action='store_true', help='also forget matching saved defaults')
     args = parser.parse_args(argv)
     args.pretty = getattr(args, 'pretty', False)
     return args

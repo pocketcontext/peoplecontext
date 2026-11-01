@@ -189,12 +189,12 @@ ssh -L 8765:127.0.0.1:8765 user@ssh-host
 On the SSH host, replace `/absolute/path/to/peoplecontext` with the installed skill directory containing `SKILL.md`, then run from any working directory:
 
 ```sh
-"/absolute/path/to/peoplecontext/peoplecontext" login --google
+"/absolute/path/to/peoplecontext/peoplecontext" login --google --url https://your-server.example --email you@example.com
 "/absolute/path/to/peoplecontext/peoplecontext" whoami
 "/absolute/path/to/peoplecontext/peoplecontext" check
 ```
 
-Open the printed Google URL on your laptop. The private PocketBase session file is saved with mode 0600 under `$XDG_STATE_HOME/peoplecontext/` (default `~/.local/state/peoplecontext/`), or in `PEOPLECONTEXT_SESSION_DIR` when set, so clearing `~/.cache` does not sign you out; a session left in `~/.cache/peoplecontext/` by an older client is moved there on first use. Active Google sessions renew after five minutes or near expiry; `whoami` always refreshes. Tokens expire seven days after issuance/refresh, with no absolute renewal limit or background refresh. Expired/revoked tokens require another browser login. `logout` only removes the local copies, new and old. Provisioned password accounts may use `PEOPLECONTEXT_AGENT_PASSWORD`.
+Open the printed Google URL on your laptop. The private PocketBase session file is saved with mode 0600 under `$XDG_STATE_HOME/peoplecontext/` (default `~/.local/state/peoplecontext/`), or in `PEOPLECONTEXT_SESSION_DIR` when set, so clearing `~/.cache` does not sign you out. Active Google sessions renew after five minutes or near expiry; `whoami` always refreshes. Tokens expire seven days after issuance/refresh, with no absolute renewal limit or background refresh. Expired/revoked tokens require another browser login. `logout` removes the selected local token and retains default settings. Provisioned password accounts may use `PEOPLECONTEXT_AGENT_PASSWORD`.
 
 The skill reads through filtered SQL and writes only ordinary HR collections through REST. It never uses operator credentials or exposes authority tables. It has no delete command and no issue-style revision checks.
 
@@ -226,6 +226,7 @@ Legacy deployment installers are retired. Keep one database and replica writer.
 Additional checks:
 
 ```sh
+python3 tests/configuration.py
 python3 tests/oauth.py
 python3 tests/oauth_integration.py --binary ../peoplecontext-server/bin/pocketcontext
 python3 tests/skill.py --binary ../peoplecontext-server/bin/pocketcontext
@@ -363,3 +364,11 @@ Local direct-server development may still use local storage. The old deployment
 is retired; fresh deployment is outside this change.
 
 See [CI and deployment](docs/ci-and-deployment.md) for common release controls.
+
+## Saved CLI login settings
+
+Sign in once with `peoplecontext login --google --url https://your-server.example --email you@example.com`, or use `--password` with `PEOPLECONTEXT_AGENT_PASSWORD` for a provisioned password account. The password is supplied through the environment, never as a CLI argument.
+
+URL and email resolve from CLI options, then `PEOPLECONTEXT_URL` / `PEOPLECONTEXT_AGENT_EMAIL`, then saved defaults. `--url` and `--email` work before or after the command. Later commands need no URL/email exports. Successful explicit login writes `default.json` containing only URL and email alongside the per-account token file in `$XDG_STATE_HOME/peoplecontext/` (default `~/.local/state/peoplecontext/`), or `PEOPLECONTEXT_SESSION_DIR`. Files use mode 0600 and the directory 0700. Ordinary commands and token refresh never change the default account. Tokens are selected only for the exact resolved server/email pair.
+
+`peoplecontext logout` removes the selected token and retains settings for the next login. `peoplecontext logout --forget` also removes the default when it matches that account; other accounts remain untouched. Old cache sessions are not migrated: sign in again. A malformed or unsafe default file must be fixed or removed before continuing.

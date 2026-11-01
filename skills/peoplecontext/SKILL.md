@@ -9,7 +9,7 @@ Paths in this file are relative to the directory that contains this `SKILL.md`. 
 
 In the examples, replace `/absolute/path/to/peoplecontext` with that installed skill directory.
 
-Configure `PEOPLECONTEXT_URL` and `PEOPLECONTEXT_AGENT_EMAIL`; Google login does not require `PEOPLECONTEXT_AGENT_PASSWORD`. If missing, ask the user; never search for operator credentials.
+Provide `--url` and `--email` on first login; Google login does not require `PEOPLECONTEXT_AGENT_PASSWORD`. If missing, ask the user; never search for operator credentials.
 
 The launcher requires uv and Python 3.11 or later; its first run installs the pinned package.
 
@@ -17,7 +17,7 @@ The launcher requires uv and Python 3.11 or later; its first run installs the pi
 
 Run `"/absolute/path/to/peoplecontext/peoplecontext" login --google`. Open the printed URL in the user's browser. For an SSH session, first forward `8765:127.0.0.1:8765` from the browser's machine. Callback URI: `http://127.0.0.1:8765/callback`. Keep the URL private. Workspace JIT creates an account; a verified matching employee work email can establish the employee link. A disabled account needs operator help, not a new identity.
 
-The client privately saves the PocketBase session under `$XDG_STATE_HOME/peoplecontext/` (default `~/.local/state/peoplecontext/`), or in `PEOPLECONTEXT_SESSION_DIR` when set, so clearing `~/.cache` does not sign you out; a session left in `~/.cache/peoplecontext/` by an older client is moved there on first use. Tokens last seven days and renew during use; `whoami` requests renewal. Expired/revoked Google sessions require browser login. `logout` removes only the local session, from both locations. No Google secret belongs in the client environment. Password login remains supported for provisioned accounts.
+The client privately saves the PocketBase session under `$XDG_STATE_HOME/peoplecontext/` (default `~/.local/state/peoplecontext/`), or in `PEOPLECONTEXT_SESSION_DIR` when set, so clearing `~/.cache` does not sign you out. Tokens last seven days and renew during use; `whoami` requests renewal. Expired/revoked Google sessions require browser login. `logout` removes the selected local token and retains default settings. No Google secret belongs in the client environment. Password login remains supported for provisioned accounts.
 
 ## Read and write
 
@@ -47,3 +47,11 @@ The server keeps requested traces in a bounded 16 MiB memory buffer with short e
 ## Browser record links
 
 The authenticated reader is available at the application origin. Link to a record with `/#/<collection>/<record-id>` using its stable ID, for example `/#/employees/<record-id>`. Links open current authorized data and grant no access. Use the reader’s Copy record link action for wiki references; retain immutable evidence in WikiContext when a historical claim requires it. Never include auth tokens or protected file URLs in wiki links. Opening a link does not acknowledge messages or notifications.
+
+## Saved CLI login settings
+
+Sign in once with `peoplecontext login --google --url https://your-server.example --email you@example.com`, or use `--password` with `PEOPLECONTEXT_AGENT_PASSWORD` for a provisioned password account. The password is supplied through the environment, never as a CLI argument.
+
+URL and email resolve from CLI options, then `PEOPLECONTEXT_URL` / `PEOPLECONTEXT_AGENT_EMAIL`, then saved defaults. `--url` and `--email` work before or after the command. Later commands need no URL/email exports. Successful explicit login writes `default.json` containing only URL and email alongside the per-account token file in `$XDG_STATE_HOME/peoplecontext/` (default `~/.local/state/peoplecontext/`), or `PEOPLECONTEXT_SESSION_DIR`. Files use mode 0600 and the directory 0700. Ordinary commands and token refresh never change the default account. Tokens are selected only for the exact resolved server/email pair.
+
+`peoplecontext logout` removes the selected token and retains settings for the next login. `peoplecontext logout --forget` also removes the default when it matches that account; other accounts remain untouched. Old cache sessions are not migrated: sign in again. A malformed or unsafe default file must be fixed or removed before continuing.
