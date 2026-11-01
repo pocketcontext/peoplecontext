@@ -31,11 +31,13 @@ Use `--help` for arguments. Pass JSON or SQL as `-` on stdin when appropriate. D
 
 ## Optional request tracing
 
-Ordinary commands do not collect or upload traces. Install the separate ObserveContext skill to opt in for one command. Authenticate with this app normally, then set `OBSERVECONTEXT_URL=https://observe.pocketcontext.com` and `OBSERVECONTEXT_USER_EMAIL` to your Workspace email and run `/path/to/observecontext/observecontext login --google` separately. ObserveContext uses its own account and token; no ObserveContext credentials belong on this application server.
+Ordinary commands do not collect or upload traces. Install the separate ObserveContext skill to opt in for one command. Authenticate with this app normally, then run `observecontext login --google --url https://observe.pocketcontext.com --email you@pocketcontext.com` separately; later commands use saved defaults. ObserveContext uses its own account and token; no ObserveContext credentials belong on this application server.
+
+Replace `https://your-server.example` with the same application origin used at login.
 
 ```sh
 /path/to/observecontext/observecontext capture \
-  --url "${PEOPLECONTEXT_URL}" --service peoplecontext.client --upload -- \
+  --url https://your-server.example --service peoplecontext.client --upload -- \
   /path/to/peoplecontext/peoplecontext \
   query 'SELECT id FROM employees LIMIT 5'
 ```
